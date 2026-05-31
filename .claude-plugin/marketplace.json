@@ -1,0 +1,24 @@
+{
+  "name": "seacen-marketplace",
+  "owner": {
+    "name": "Xichang (Seacen) Zhao",
+    "url": "https://github.com/seacen"
+  },
+  "description": "Seacen Zhao's personal Claude Code plugin marketplace. Currently hosts OMem (Office Memory) — a local-first work-context memory layer for AI agents.",
+  "plugins": [
+    {
+      "name": "omem",
+      "source": "./",
+      "description": "Office Memory — local-first wiki built from your Microsoft 365 / Mail.app / Calendar / local folders. Claude Code can query it to answer questions about your work history.",
+      "version": "1.0.0",
+      "homepage": "https://github.com/seacen/omem",
+      "keywords": [
+        "memory",
+        "rag",
+        "office",
+        "microsoft-365",
+        "macos"
+      ]
+    }
+  ]
+}

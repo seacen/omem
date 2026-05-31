@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "omem": {
+      "command": "omem",
+      "args": ["mcp"],
+      "description": "OMem stdio MCP server — read-only access to your local work-context wiki (query / page_get / raw_get_path / raw_get_parsed_path / wiki_ls / doctor). Requires the omem CLI binary on PATH (brew install seacen/omem/omem)."
+    }
+  }
+}
