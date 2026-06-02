@@ -77,21 +77,37 @@ Reference:
 **Manifest**: none separate — Claw Hub reads `skills/omem/SKILL.md`
 directly. No additional config file required for the skill path.
 
-**Publish path** (skill, not code-plugin):
+**Publish path** (skill, not code-plugin). Claw Hub takes the skill
+**folder** and reads `SKILL.md` from it — the only required flag is
+`--version` (semver). `slug` / `name` come from the SKILL.md
+frontmatter `name`; there is no `--slug` / `--name` / `--changelog`
+flag (verified against the Claw Hub CLI docs, 2026-06-02):
 
 ```bash
 npm i -g clawhub                           # install Claw Hub CLI
 clawhub login                              # GitHub OAuth
-clawhub skill publish ./skills/omem \
-  --slug omem \
-  --name "OMem" \
-  --version 1.0.0 \
-  --changelog "v1.0 — local-first work-context memory for AI agents"
+clawhub skill publish ./skills/omem --version 1.0.0
+# optional: --owner <handle> to publish under an org/handle you control
 ```
 
 **User install**:
 ```
 openclaw skills install omem
+```
+
+**CI automation** (optional): Claw Hub ships an official reusable
+workflow. Add `.github/workflows/skill-publish.yml` to the public repo
+that calls it, so a tag push republishes the skill:
+
+```yaml
+jobs:
+  publish:
+    uses: openclaw/clawhub/.github/workflows/skill-publish.yml@v1
+    with:
+      path: ./skills/omem
+      version: ${{ github.ref_name }}   # tag drives the semver
+    secrets:
+      clawhub-token: ${{ secrets.CLAWHUB_TOKEN }}
 ```
 
 **Notes**:
@@ -102,9 +118,12 @@ openclaw skills install omem
 - All examples in `SKILL.md` use fictional names (Acme/Atlas/Alice/Bob)
   per project policy — Claw Hub is a public marketplace, no real corpus
   data allowed.
-- Published skill is auto-tagged MIT-0 by Claw Hub registry policy;
-  our PolyForm Noncommercial LICENSE still applies to the upstream
-  source. See [Claw Hub docs](https://github.com/openclaw/clawhub/blob/main/docs/cli.md).
+- Publishing tags the skill **descriptor** MIT-0 on Claw Hub (their
+  registry policy: published skills are free to use/modify/redistribute
+  without attribution). This applies only to the `SKILL.md` +
+  `references/` text on Claw Hub — the `omem` CLI binary and its source
+  stay under PolyForm Noncommercial 1.0.0. See
+  [Claw Hub CLI docs](https://github.com/openclaw/clawhub/blob/main/docs/cli.md).
 
 Reference:
 - <https://clawhub.ai>

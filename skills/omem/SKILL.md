@@ -28,6 +28,10 @@ description: |
   Primary tool: `omem query "<question>" --format json --limit 20`
   Then progressively drill down via `omem page get <page_id>`,
   `omem raw get <page_id> --parsed`, `omem raw get <page_id>`.
+  Usually one query and one page answers the question — read it, cite,
+  done. Only when a page's answer hinges on a specific term, person, or
+  document you haven't resolved, query again for that one thing — follow
+  the thread, don't crawl the graph.
   Never call `omem setup / install / ingest / lint / index rebuild` —
   those are user actions; tell the user in natural language instead.
 allowed-tools:
@@ -73,41 +77,44 @@ enough to answer.
 | L2 parsed.md | `omem raw get <page_id> --parsed` → `Read <path>` | ~2k–10k | L1 wiki missing a specific detail (table row, slide quote, contract clause) |
 | L3 original file | `omem raw get <page_id>` → `Read <path>` | varies | Only when binary format matters; usually unnecessary |
 
-**Default path**: L0 (limit 20) → read ALL abstracts → you rerank →
-fetch the 1–3 you actually judge relevant via L1 → stop at L1 unless
-the wiki body literally doesn't contain what the user needs.
+**Default path**: L0 (limit 20) → read all abstracts → rerank → fetch
+the 1–3 you judge relevant at L1 → stop, unless the body lacks a needed
+detail (drop to L2) or references something you must resolve first
+(recurse — see "Follow threads depth-first" below).
 
 ## Rerank the abstracts yourself — `score` is a coarse signal, not the answer
 
-`omem query` returns hits ordered by a backend score (BM25, or a
-hybrid embedding+BM25 score from qmd). That score is good at **finding
-plausibly-related pages** — it is NOT a final relevance judgment. It
-doesn't know what the user actually means by "the document", who they
-care about, or which of several similar pages is the right version.
-You do.
+`omem query` orders hits by a backend score (BM25, or qmd's hybrid
+embedding+BM25). That score is good at **finding plausibly-related
+pages** — it is NOT a final relevance judgment. It doesn't know what
+the user means by "the document", who they care about, or which of
+several similar pages is the right version. You do.
 
 Treat the score as **candidate generation** and the abstracts as the
 **actual signal**. The default workflow:
 
-1. Run `omem query --limit 20` — get a wide pool of candidates.
-2. Read **every abstract** in the response (each is ~100 tokens; 20
-   abstracts ≈ 2k tokens total — cheap).
+1. Run `omem query --limit 20` — a wide candidate pool, not a narrow one.
+2. Read **every abstract** in the response. Each is ~100 tokens; 20
+   abstracts ≈ 2k tokens total — cheap relative to the cost of missing
+   the right page and having to re-query.
 3. Pick the 1–3 pages whose abstracts genuinely match what the user is
-   asking. This often means picking page #5 instead of #1, or
-   skipping the top hit because its abstract is on the wrong topic.
+   asking. This often means picking page #5 over #1, or skipping the
+   top hit entirely because its abstract is on the wrong topic — the
+   score got it into the pool, your judgment decides if it stays.
 4. Only then `omem page get <id>` for the ones you chose.
 
 **Shortcut allowed**: if the top 2–3 scores are all >0.7 AND their
-abstracts cleanly match the question's intent, you can fetch directly
+abstracts cleanly match the question's intent, fetch them directly
 without reading all 20. Don't force-read 20 abstracts when 3 are
-obviously right. But when in doubt, read more, not fewer.
+obviously right — but when in doubt, read more, not fewer.
 
 **If the first 20 look thin** — top scores all <0.5, OR all abstracts
-are clearly off-topic — don't give up. Try one round of broadening:
+clearly off-topic — don't give up after one shot. Do one round of
+broadening first:
 
-- Reword the query with synonyms or different framing (e.g. "Q3
-  budget" → "third quarter financial review")
-- Drop `--kind` or `--since` filters if you set any
+- Reword with synonyms or different framing ("Q3 budget" → "third
+  quarter financial review")
+- Drop any `--kind` / `--since` filters you set
 - Bump to `--limit 50` and read further down
 
 A second round costs ~2k tokens and often surfaces what the first
@@ -116,6 +123,48 @@ round's tokenizer missed. Give up only after one honest retry.
 If still nothing relevant after a retry: 0 hits is a valid answer.
 Say "OMem didn't surface anything specific about this" and answer from
 general knowledge if appropriate.
+
+## Follow threads depth-first — but only when the answer needs it
+
+Most questions are answered by the first page you open — read it, cite
+it, done. That's the common case, and you should not go looking for
+reasons to query again.
+
+But sometimes a page doesn't *contain* the answer so much as *point* at
+it: its body references a project, person, document, or decision that
+you'd have to understand to actually answer, and that thing lives on
+another page. When — and only when — that happens, treat memory as a
+graph you can **recurse through**: query for the missing piece, read
+it, and come back up to assemble the answer. It's how a colleague who
+knew the history would work — recall the meeting, realize it hinged on
+an earlier contract, go pull that contract — each step prompted by a
+real gap, not by habit.
+
+So after reading a page, ask one question: *can I now answer what the
+user actually asked, with specifics?*
+
+- **Yes** → answer and cite. Stop. One query, one page is a complete
+  and good outcome — don't second-guess it.
+- **No, because a specific term / name / reference here is load-bearing
+  and I haven't resolved it** → query for that one thing, then re-ask
+  the same question. This is the only trigger for another round.
+
+What counts as a load-bearing gap worth one more query:
+
+- An **unfamiliar codename / acronym** the answer depends on ("the
+  Atlas migration", "per the Q2 risk review")
+- A **referenced artifact** you must read to answer ("the penalty is in
+  the signed MSA") — fetch that page
+- A **prior decision / event** the answer hinges on ("we reversed this
+  after the March incident")
+
+A passing mention you don't need to resolve is **not** a gap — if the
+user's question is answered without it, ignore it and stop. Depth-first
+means following the one thread that leads to the answer, not crawling
+the graph. Most chains are zero or one extra hop; if you're several
+hops deep and still digging, you've likely drifted — summarize what you
+found and tell the user where the trail went cold. (Flow F shows a case
+that genuinely needed two hops.)
 
 ## Tools
 
@@ -245,16 +294,40 @@ Don't call this skill. Answer from general knowledge.
 Flow E — *"Did we ever talk about the API rate-limit issue?"* (retry round)
 
 1. `omem query "API rate limit" --format json --limit 20`
-2. Top scores all <0.4 and abstracts are off-topic (e.g. a vendor's
-   public API rate card, a generic throttling reference). No real
-   match.
-3. Retry: `omem query "throttling 429 too many requests" --limit 20`
-   — synonyms / related symptoms instead of literal phrasing.
-4. Still nothing relevant. Accept 0 hits.
-5. Answer from general knowledge, noting "OMem didn't surface
-   anything specific about this — could be a recent discussion not
-   yet ingested, or it lived in a source OMem isn't configured to
-   read."
+2. Top scores all <0.4 and the abstracts are off-topic — a vendor's
+   public API rate card, a generic throttling reference. No real match.
+3. Retry with synonyms and related symptoms instead of the literal
+   phrasing: `omem query "throttling 429 too many requests" --limit 20`.
+4. Still nothing relevant. Accept the miss — 0 hits is a valid answer.
+5. Answer from general knowledge, noting "OMem didn't surface anything
+   specific about this — could be a recent discussion not yet ingested,
+   or it lived in a source OMem isn't configured to read."
+
+Flow F — *"Why did we end up switching the Atlas project to the new vendor?"* (recurse only because the answer needs it)
+
+1. `omem query "Atlas project vendor switch" --format json --limit 20`
+2. Best abstract is a decision-log page. `omem page get <id>`.
+3. The body says the switch was made "following the SLA breach
+   covered in the Q2 incident review, and per Bob's recommendation" —
+   two unknowns that the answer hinges on. Don't answer yet; recurse.
+4. `omem query "Q2 incident review SLA breach" --limit 20` →
+   `omem page get <id>`: the incident review quantifies the breach
+   (repeated downtime past the contractual cap). That's the *why*.
+5. `omem query "Bob vendor recommendation Atlas" --limit 20` →
+   the abstract confirms Bob proposed the specific replacement vendor
+   and the rationale. Enough.
+6. Climb back up and assemble the full picture: the switch was driven
+   by the SLA breach (from the incident review) plus Bob's replacement
+   proposal (from his recommendation), formalized in the decision log.
+   Cite all three `[source: …]` pages.
+
+Why this needed the hops: the first page *mentioned* the decision but
+didn't *explain* it, and the explanation was exactly what the user
+asked for — so the two references were load-bearing, not incidental.
+Note the contrast with Flow A, where the first page fully answered the
+question and stopping there was correct. The test is always the same:
+*does answering require this?* — not *is there something else I could
+go read?*
 
 ## Citing sources
 
