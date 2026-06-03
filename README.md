@@ -1,4 +1,30 @@
-# OMem — the office your AI remembers
+<div align="center">
+
+<a href="https://seacen.github.io/omem/" target="_blank">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs-site/src/assets/brand/logo-lockup-dark.svg">
+    <img alt="OMem — the office your AI remembers." src="docs-site/src/assets/brand/logo-lockup-light.svg" width="360">
+  </picture>
+</a>
+
+<br>
+
+**Local-first · agent-agnostic memory layer for AI agents**
+
+<a href="https://seacen.github.io/omem/">Docs</a> ·
+<a href="https://seacen.github.io/omem/zh-cn/">中文文档</a> ·
+<a href="https://seacen.github.io/omem/concepts/01-what-is-omem/">What is OMem?</a> ·
+<a href="https://github.com/seacen/omem/issues">Issues</a>
+
+[![release](https://img.shields.io/github/v/release/seacen/omem?style=flat-square&labelColor=2B2A28&color=4A4843&label=release)](https://github.com/seacen/omem/releases/latest)
+[![release date](https://img.shields.io/github/release-date/seacen/omem?style=flat-square&labelColor=2B2A28&color=4A4843&label=released)](https://github.com/seacen/omem/releases/latest)
+[![license](https://img.shields.io/badge/license-PolyForm--NC-4A4843?style=flat-square&labelColor=2B2A28)](./LICENSE)
+[![platform](https://img.shields.io/badge/platform-macOS%20%C2%B7%20Windows%20soon-4A4843?style=flat-square&labelColor=2B2A28)](https://seacen.github.io/omem/getting-started/01-install/)
+[![docs](https://img.shields.io/badge/docs-seacen.github.io%2Fomem-4A4843?style=flat-square&labelColor=2B2A28)](https://seacen.github.io/omem/)
+
+</div>
+
+---
 
 **Local-first, agent-agnostic memory layer for AI agents.** OMem runs quietly on
 your machine and turns your real work — email, calendar, meeting notes, and files
