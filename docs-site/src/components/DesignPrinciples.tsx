@@ -3,7 +3,7 @@
  *
  * Eight are parallel tenets, not a linear story — so this is a scannable grid
  * of editorial principle cards. Click a card to expand its deeper rationale
- * inline (P3 wiki-as-truth, P7 Stable-A vs Stable-B). Numbered like a manifesto,
+ * inline (P3 wiki-as-truth, P7 parser-per-format). Numbered like a manifesto,
  * EB Garamond display titles, pure monochrome (BRAND §7.1), no emoji.
  *
  * Content from docs/user-docs/_design-intent.md §1 (P1–P8).
@@ -41,12 +41,12 @@ const PRINCIPLES: Principle[] = [
   },
   {
     n: '03',
-    short: 'Deterministic parsing — an archive you can trust in three years.',
-    what: 'The default parser chain uses real libraries (python-docx, pymupdf, …), not an LLM. The same file produces byte-identical Markdown years from now; numbers and proper nouns survive verbatim.',
-    means: 'The key distinction is Stable-A (content-immutable — the same input rebuilds byte-identical, which only a deterministic function gives) vs. Stable-B (frozen on disk — anything written down has this). An LLM parser only gives Stable-B: model retirement or sampling drift means you can’t rebuild the same parsed.md later, and it smooths unusual text (an oddly specific 11.3% can quietly become a rounder 11%). Because raw/<sha>/parsed.md is OMem’s archival truth, the default stays deterministic; an optional parser-llm is reserved for those who want layout understanding over archival fidelity.',
-    short_zh: '确定性解析——三年后依然可信的归档。',
-    what_zh: '默认的 parser 链用的是真实的库（python-docx、pymupdf 等），不是 LLM。同一个文件多年以后产出的 Markdown 逐字节一致；数字和专有名词原样保留。',
-    means_zh: '关键区分在于 Stable-A（内容不可变——同样的输入能重建出逐字节一致的结果，只有确定性函数才给得了）和 Stable-B（落盘冻结——任何写下来的东西都有这个性质）。LLM parser 只给得了 Stable-B：模型退役或采样漂移意味着你日后没法重建出同一份 parsed.md，而且它会把不寻常的文本"抹平"（一个怪具体的 11.3% 可能悄悄变成更圆整的 11%）。因为 raw/<sha>/parsed.md 是 OMem 的归档真相，默认就保持确定性；可选的 parser-llm 留给那些宁要版面理解、不那么在意归档保真度的人。',
+    short: 'Parse to Markdown first — cheaper, no quality lost.',
+    what: 'OMem parses each file into clean Markdown with real libraries (python-docx, pymupdf, …) — not by feeding the raw file to an LLM. That parse costs no tokens, and the AI then reads tidy Markdown instead of a fat raw file, which is far cheaper every time it is queried.',
+    means: 'The biggest reason not to just hand files to the model is cost, in two halves: turning a complex PPT/Excel/PDF into Markdown costs no LLM tokens (real libraries do it), and reading that Markdown is a fraction of the tokens of reading the raw file — which gets queried again and again. The hard part is doing this cheaply WITHOUT losing quality: office files hide their value in edge cases that naive converters drop (speaker notes, merged cells, embedded charts, scanned bilingual pages, mail-thread images). So OMem writes a purpose-built parser per format to recover exactly those — and reading images is part of parsing, not a bolt-on. That is the achievement: the free, cheap path also reads your files accurately, so the AI answers accurately. An optional parser-llm is reserved for v1.5.',
+    short_zh: '先解析成 Markdown——更省钱，质量不打折。',
+    what_zh: 'OMem 用真实的库（python-docx、pymupdf 等）把每个文件解析成干净的 Markdown，而不是把原文件丢给 LLM。这一步解析不花 token；之后 AI 读的是清爽的 Markdown，而不是又大又重的原文件——每查一次都便宜得多。',
+    means_zh: '不直接把文件丢给模型，最大的原因是省钱，分两半：把复杂的 PPT/Excel/PDF 转成 Markdown 不花 LLM 的钱（真实的库做的），而读这份 Markdown 又只是读原文件所需 token 的零头——何况它会被反复查。难的地方在于：既要这么省，又不掉质量。办公文件的价值藏在各种 edge case 里，粗糙的转换器会丢掉每种格式最值钱的那部分（演讲者备注、合并单元格、嵌入图表、扫描的中英混排页、邮件内嵌图）。所以 OMem 给每种格式做专门的 parser，把这些一个个捞回来——"看懂图"也是解析的一部分。了不起的正是这点：那条又免费又便宜的路，同时还把文件解析得很准，所以 AI 才答得准。可选的 parser-llm 留给 v1.5。',
   },
   {
     n: '04',
@@ -97,7 +97,7 @@ const PRINCIPLES: Principle[] = [
 
 export default function DesignPrinciples({ lang = 'en' }: { lang?: 'en' | 'zh' }) {
   const zh = lang === 'zh';
-  const [open, setOpen] = useState<number | null>(1); // wiki-is-truth open by default — the soul
+  const [open, setOpen] = useState<number | null>(null); // nothing open by default — user clicks to expand
 
   return (
     <div style={{ width: '100%', margin: '1.5rem 0' }}>

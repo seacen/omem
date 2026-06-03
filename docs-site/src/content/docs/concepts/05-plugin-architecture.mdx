@@ -27,7 +27,7 @@ Be precise about the count, because it's easy to oversell: **three of these are 
 - **The parser chain can evolve.** Today it's deterministic (no LLM). The interface leaves room for a future `parser-llm` to plug in for file kinds — for people who want layout understanding over archival reproducibility — without changing the contract the rest of the pipeline relies on.
 
 <Aside type="note" title="Why the default index is already good">
-Plugins exist to offer *different trade-offs* (speed vs. recall, local vs. cloud), not to upgrade from a deliberately weak baseline. The `brew install omem` default has to be something you can trust every day — see [design principle P6](/concepts/06-design-principles/). `qmd` isn't "the good version"; it's "the different-trade-off version".
+Plugins exist to offer *different trade-offs* (speed vs. recall, local vs. cloud), not to upgrade from a deliberately weak baseline. The out-of-the-box default has to be something you can trust every day — see [design principle P6](/concepts/06-design-principles/). `qmd` isn't "the good version"; it's "the different-trade-off version".
 </Aside>
 
 ## The CLI is the real extension surface

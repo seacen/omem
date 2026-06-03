@@ -1,10 +1,10 @@
 ---
 title: 安装 OMem
-description: 用 Homebrew 或一行 curl 脚本在 macOS 上装好 omem CLI,并确认它能跑起来。这是让 OMem 完整跑通的四步里的第一步。
+description: 用一行 curl 脚本在 macOS 上装好 omem CLI,并确认它能跑起来。这是让 OMem 完整跑通的四步里的第一步。
 ---
 
 import CommandExplorer from '../../../../components/CommandExplorer.tsx';
-import { Aside, Tabs, TabItem, Steps } from '@astrojs/starlight/components';
+import { Aside, Steps } from '@astrojs/starlight/components';
 
 刚听说 OMem、想上手试试?这一页就是给你的。读完,你就把 `omem` 命令装好、也验过了,前后大概两分钟。再往后三页,会带你从"装好了",一路走到"我的 agent 能答上来我工作里的事"。
 
@@ -22,22 +22,13 @@ OMem **目前支持 macOS,Windows 版也在路上了。** 它就是一个命令�
 
 <Steps>
 
-1. **装这个二进制。** 二选一:
+1. **装这个二进制。** 一行命令:
 
-   <Tabs>
-     <TabItem label="Homebrew(推荐)">
-     ```bash
-     brew install seacen/omem/omem
-     ```
-     以后更新交给 Homebrew 就行:`brew upgrade omem`。
-     </TabItem>
-     <TabItem label="curl">
-     ```bash
-     curl -fsSL https://omem.app/install.sh | sh
-     ```
-     装到 `~/.local/bin/omem`。记得确认这个路径在你的 `PATH` 里。
-     </TabItem>
-   </Tabs>
+   ```bash
+   curl -fsSL https://github.com/seacen/omem/releases/latest/download/install.sh | sh
+   ```
+
+   它会把 `omem` 装到 `~/.local/bin/omem`——记得确认这个路径在你的 `PATH` 里。
 
 2. **验一下它能跑:**
 
@@ -57,13 +48,13 @@ OMem **目前支持 macOS,Windows 版也在路上了。** 它就是一个命令�
 }]} />
 
 <Aside type="note" title="不走 PyPI,不用 pip,也不用从源码编译">
-OMem 发出来的,是一个编译好的二进制文件。你不用 `pip install`、不用 clone 仓库,也不用伺候什么 virtualenv——`brew`(或那行 curl 脚本)给你一个可执行文件,整个安装就这么点事。以后升级,也走同一个渠道。
+OMem 发出来的,是一个编译好的二进制文件。你不用 `pip install`、不用 clone 仓库,也不用伺候什么 virtualenv——那行 curl 脚本下载一个可执行文件,整个安装就这么点事。以后升级,也走同一个脚本。
 </Aside>
 
 <details>
 <summary>它为什么没签名,这对你意味着什么</summary>
 
-macOS 上这个二进制**没有签名**(也就是没经过 Apple 公证)。不过两种安装方式都替你处理好了:`curl` 脚本下载时就不带隔离(quarantine)标记,Homebrew 的 formula 则会把它去掉——所以你不会撞上 Gatekeeper 那道"来自身份不明的开发者"的拦截。这是 v1.0 想清楚了才这么定的(对一个单人项目来说,代码签名的成本是实打实的),它一点不影响 OMem 怎么跑。万一你哪天用别的方式下载了这个二进制、又被 macOS 拦下,把隔离属性去掉就行:`xattr -dr com.apple.quarantine /path/to/omem`。
+macOS 上这个二进制**没有签名**(也就是没经过 Apple 公证)。不过那行 curl 脚本替你处理好了:它下载时就不带隔离(quarantine)标记,所以你不会撞上 Gatekeeper 那道"来自身份不明的开发者"的拦截。这是 v1.0 想清楚了才这么定的(对一个单人项目来说,代码签名的成本是实打实的),它一点不影响 OMem 怎么跑。万一你哪天用别的方式下载了这个二进制、又被 macOS 拦下,把隔离属性去掉就行:`xattr -dr com.apple.quarantine /path/to/omem`。
 
 </details>
 

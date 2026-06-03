@@ -22,13 +22,20 @@ Most "AI memory" tools keep your memory inside something you can't see — a vec
 
 That has a concrete payoff. The indexes are opinions layered on top — delete them all and they rebuild from the wiki. The wiki itself is generated from the immutable `raw/` archive — delete the wiki and it rebuilds from `raw/`. Nothing is trapped: back it up, version-control it, hand-edit a page, point it at a different machine. Your work context stays yours, in a format that will still open in fifty years.
 
-## Why parsing is deterministic
+## Why parse to Markdown first
 
-A fair question: frontier LLMs can read a PDF or a deck directly — so why does OMem run python-pptx / pymupdf / a vision model to make `parsed.md`, instead of just handing the file to an LLM?
+A fair question: frontier LLMs can read a PDF or a deck directly — so why does OMem first parse every file into a clean `parsed.md`, instead of just feeding the raw file to the model?
 
-Because OMem is an **archive**, and an archive needs *Stable-A*: the same input rebuilds byte-identical, today and in three years. Only a deterministic function gives you that. An LLM parser gives you *Stable-B* — frozen once written, but not reproducible: retire the model, or let sampling drift, and you can't get the same `parsed.md` back. Swapping the deterministic chain for an LLM would quietly break the archive (and the curation cache, and the ability to diff a prompt change against a fixed parse). It also smooths unusual text — an oddly specific figure like `11.3%` can quietly become a rounder `11%` — where python-docx returns exactly what's in the file.
+**The biggest reason is cost**, and it has two halves:
 
-So the default chain stays deterministic. A `parser-llm` plugin is reserved for v1.5, for people whose priority is visual/layout understanding over archival fidelity — a real trade-off, made explicitly, not by default.
+- **Parsing the file costs no LLM tokens.** OMem extracts the file with real libraries (python-docx, pymupdf, …), not a model — turning a complex PPT/Excel/PDF into Markdown is essentially free.
+- **The AI then reads Markdown, which is far cheaper than reading the raw file.** Feeding a 30-slide deck or a fat spreadsheet to a model directly burns a fortune in tokens every time it's queried; a tidy Markdown page is a fraction of that — and it gets queried again and again.
+
+So the "just show the LLM the file" shortcut is the expensive option, not the easy one. OMem does the cheap thing: parse once, for free, into Markdown the AI can read cheaply forever after.
+
+**And here's the part that's genuinely hard: doing that cheaply *without losing quality*.** Office files hide their value in the details, and naive converters quietly drop the part of each format that matters most — a PowerPoint's speaker notes and embedded charts, an Excel's merged cells and in-sheet images, the EMF vector art in an old doc, a scanned bilingual page, the cid-embedded images in a mail thread. So OMem writes a **purpose-built parser per format** to recover exactly those edge cases: PPT split by slide with speaker notes kept and embedded charts described by a vision model; Excel rendered per sheet with images preserved; scans run through OCR tuned for mixed Chinese/English; EMF converted to PNG before the vision model sees it. **Reading the images is part of parsing, not a bolt-on.** It's the least glamorous layer and the one with the most work in it — and that's the achievement: the free, cheap path *also* reads your files accurately, so the AI answers accurately.
+
+(A `parser-llm` plugin is reserved for v1.5, for people who'd trade this for whole-file layout understanding — an explicit choice, not the default.)
 
 <Aside type="note" title="Honest about v1.0">
 These principles describe the shape of the system, not a finished frontier. Several things they imply — entity-extracted wikis (a page per person/project), fully-offline operation, cross-device sync — are deliberately [out of scope for v1.0](/concepts/01-what-is-omem/#available-today). The principles hold; the surface area grows in v1.5+.
