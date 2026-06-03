@@ -1,6 +1,6 @@
 ---
 title: Connect agents
-description: Wire OMem into your agent. Agents with a skill mechanism (Claude Code, Codex, Claw Hub) use the OMem skill; agents without one connect via the omem mcp server. Config for each.
+description: Wire OMem into your agent — exact steps for Claude Code, Codex, Claw Hub, and any MCP client (Cursor, Cline, …). One skill, several front doors; the omem mcp server as the universal fallback.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
@@ -31,14 +31,35 @@ The agent now auto-invokes OMem on work-context questions. Verify by asking *"ch
 
 ### Codex
 
-OMem ships a Codex plugin manifest carrying the same skill. The bundle registers the `omem` MCP entry so Codex auto-wires it; install per Codex's plugin instructions, with the `omem` CLI already on your `PATH`.
+OMem ships a Codex plugin that carries the same skill. With the `omem` CLI installed, install it from Codex's plugin browser:
 
-### Claw Hub
+1. In Codex, run `/plugins` to open the plugin browser.
+2. Add OMem's source: `seacen/omem` (the GitHub repo). Use the marketplace tabs to switch to it.
+3. Open the **OMem** plugin and choose **Install plugin**.
 
-OMem ships a Claw Hub manifest with the same skill capability. Install it from Claw Hub the way you install any of its plugins — again, with the `omem` CLI installed first.
+That's all — the plugin brings OMem's skill with it, so Codex now auto-queries your work memory the same way Claude Code does. Verify by asking *"check my OMem health"* — it should run `omem doctor`.
 
-<Aside type="note" title="One skill, several manifests">
-Claude Code, Codex, and Claw Hub each get a thin manifest pointing at the *same* skill content — identical triggers, identical six tools. You're not configuring three different things; you're installing one skill through three front doors.
+<Aside type="note" title="Codex's plugin browser is interactive">
+Codex installs third-party plugins through the interactive `/plugins` browser rather than a one-line command — you add the `seacen/omem` source and pick OMem from the list. The plugin carries the same skill content as the Claude Code one.
+</Aside>
+
+### Claw Hub (OpenClaw)
+
+OMem's skill is published on **Claw Hub**, OpenClaw's public skill registry. With the `omem` CLI installed, install the skill by its slug:
+
+```bash
+openclaw skills install omem
+```
+
+(Add `--global` to install it for every workspace.) You can also browse or search it at [clawhub.ai](https://clawhub.ai), or use the standalone Claw Hub CLI:
+
+```bash
+npm i -g clawhub
+clawhub install omem
+```
+
+<Aside type="note" title="One skill, three front doors">
+Claude Code, Codex, and Claw Hub all reach the *same* skill content — identical triggers, identical six tools. You're not configuring three different things; you're installing one skill through whichever door your agent uses.
 </Aside>
 
 ## Agents without a skill — the MCP server

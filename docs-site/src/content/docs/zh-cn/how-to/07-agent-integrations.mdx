@@ -31,14 +31,35 @@ OMem 只有一个 **skill**——一层小小的、与 agent 无关的封装,它
 
 ### Codex
 
-OMem 带了一份 Codex plugin 清单,装的是同一个 skill。这份 bundle 会把 `omem` 这个 MCP 入口注册上,Codex 就能自动接线;按 Codex 自己的 plugin 说明装就行,前提是 `omem` CLI 已经在你的 `PATH` 上。
+OMem 提供一份 Codex plugin,带的是同一个 skill。`omem` CLI 装好之后,在 Codex 的 plugin 浏览器里装:
 
-### Claw Hub
+1. 在 Codex 里运行 `/plugins`,打开 plugin 浏览器。
+2. 把 OMem 的来源加进去:`seacen/omem`(那个 GitHub 仓)。用顶部的 marketplace 标签切到它。
+3. 打开 **OMem** 这个 plugin,选 **Install plugin**。
 
-OMem 带了一份 Claw Hub 清单,带的是同一个 skill 能力。像装 Claw Hub 上任何别的 plugin 那样把它装上——同样,得先把 `omem` CLI 装好。
+就这些——plugin 把 OMem 的 skill 一起带了进来,Codex 从此会像 Claude Code 一样自动查你的工作记忆。验证一下:问它*"帮我看看 OMem 健康状况"*,它应该会去跑 `omem doctor`。
 
-<Aside type="note" title="一个 skill,几份清单">
-Claude Code、Codex、Claw Hub 各拿到一份薄薄的清单,都指向*同一份* skill 内容——一样的触发、一样的六个工具。你配的不是三个不同的东西;你是从三道前门,装同一个 skill。
+<Aside type="note" title="Codex 的 plugin 浏览器是交互式的">
+Codex 装第三方 plugin 走的是交互式的 `/plugins` 浏览器,不是一行命令——你把 `seacen/omem` 这个来源加进去、再从列表里挑 OMem。它带的 skill 内容,跟 Claude Code 那份是同一个。
+</Aside>
+
+### Claw Hub(OpenClaw)
+
+OMem 的 skill 发布在 **Claw Hub**——OpenClaw 的公共 skill 注册中心。`omem` CLI 装好后,按 slug 安装这个 skill:
+
+```bash
+openclaw skills install omem
+```
+
+(加 `--global` 就给所有 workspace 都装上。)你也可以去 [clawhub.ai](https://clawhub.ai) 网页浏览或搜索它,或者用独立的 Claw Hub CLI:
+
+```bash
+npm i -g clawhub
+clawhub install omem
+```
+
+<Aside type="note" title="一个 skill,三道前门">
+Claude Code、Codex、Claw Hub 够到的是*同一份* skill 内容——一样的触发、一样的六个工具。你配的不是三个不同的东西;你的 agent 走哪道门,就从哪道门装这一个 skill。
 </Aside>
 
 ## 没有 skill 的 agent——MCP server
