@@ -1,0 +1,168 @@
+# OMem release pipeline (M17 P3.1).
+#
+# ── WHERE THIS LIVES ────────────────────────────────────────────────────
+# Source of truth: PRIVATE repo `scripts/release/release.yml` (this file).
+# Deployed to:     PUBLIC repo `seacen/omem` at `.github/workflows/release.yml`.
+# It runs in the PUBLIC repo because public repos get FREE unlimited Actions
+# minutes (private-repo macOS runners bill at ~$0.08/min). The source code it
+# compiles is NOT in the public repo — the build job checks it out from the
+# PRIVATE repo at run time using a read-only deploy key (Secret), so source
+# never lands in public git. See M17 §2 (方案 A) + §4 Phase 3.
+#
+# ── WHAT IT DOES ────────────────────────────────────────────────────────
+# On a `v*` tag push:
+#   1. Two jobs in parallel — macos-14 (arm64) + macos-15-intel (x86_64) —
+#      each: checkout PRIVATE source → uv sync --extra build → run
+#      build_release.sh --onefile --arch=<arch> → upload tarball + .sha256 artifact.
+#   2. A release job collects both artifacts + install.sh and publishes/updates
+#      the GitHub Release on the public repo.
+#
+# ── NOT covered (manual, by author) ─────────────────────────────────────
+# - macOS 12 legacy build (build C): no hosted macOS-12 runner exists. Author
+#   builds it on a real macOS 12 machine and `gh release upload`s it to the
+#   same release. See M17 §4 P1.3.
+# - No code signing / notarization (v1.0 unsigned, M17 §2.2).
+#
+# ── REQUIRED SECRET (set in the PUBLIC repo, M17 §4 P3.2) ────────────────
+# - OMEM_PRIVATE_REPO_KEY : a read-only SSH deploy key for the PRIVATE repo,
+#   so this workflow can clone the source to compile. Set up steps are in
+#   M17 §4 P3.2.
+# - GITHUB_TOKEN : built-in; used to create the release on THIS (public) repo.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"          # v1.0.0rc1, v1.0.0, …
+  workflow_dispatch:   # allow manual re-run from the Actions tab
+    inputs:
+      tag:
+        description: "Tag to (re)build, e.g. v1.0.0rc1"
+        required: true
+
+permissions:
+  contents: write      # create/update releases on this (public) repo
+
+env:
+  PRIVATE_REPO: seacen/OfficeMemoryST
+
+jobs:
+  build:
+    name: Build ${{ matrix.label }}
+    strategy:
+      fail-fast: false   # one arch failing shouldn't kill the other
+      matrix:
+        include:
+          - runner: macos-14         # Apple Silicon (arm64)
+            arch: arm64
+            label: arm64
+          - runner: macos-15-intel   # last x86_64 image (EOL ~2027-08)
+            arch: x86_64
+            label: x86_64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      # ── 1. Check out the PRIVATE source via the read-only deploy key ──
+      # The code lives in the private repo, not here. ssh-agent loads the
+      # deploy key; we clone the tag that triggered the release.
+      - name: Resolve tag
+        id: tag
+        run: echo "ref=${{ github.event.inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - name: Load private-repo deploy key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.OMEM_PRIVATE_REPO_KEY }}
+
+      - name: Checkout private source at the tag
+        run: |
+          git clone --depth 1 --branch "${{ steps.tag.outputs.ref }}" \
+            "git@github.com:${PRIVATE_REPO}.git" src
+          echo "built from $(cd src && git rev-parse HEAD)"
+
+      # ── 2. Toolchain ─────────────────────────────────────────────────
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Set up Python 3.11
+        working-directory: src
+        run: uv python install 3.11
+
+      # ── 3. Build (build_release.sh: test gate + Nuitka onefile + zstd +
+      #      compression assertion + gating asserts + tarball + sha256). The
+      #      --arch guard confirms the runner's host arch matches. ─────────
+      - name: Build onefile binary
+        working-directory: src
+        run: bash scripts/build_release.sh --onefile --arch=${{ matrix.arch }}
+
+      # ── 4. Hand the tarball + checksum to the release job ────────────
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: omem-${{ matrix.label }}
+          path: |
+            src/dist/omem-*-darwin-*.tar.gz
+            src/dist/omem-*-darwin-*.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Publish release
+    needs: build
+    runs-on: ubuntu-latest    # just collects artifacts + creates the release (cheap)
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true   # flatten arm64 + x86_64 into one dir
+
+      # install.sh ships from the PRIVATE repo source of truth
+      # (scripts/release/install.sh). We fetch it via the same deploy key so
+      # the release carries the exact installer for this tag.
+      - name: Load private-repo deploy key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.OMEM_PRIVATE_REPO_KEY }}
+
+      - name: Fetch install.sh from private source
+        run: |
+          ref="${{ github.event.inputs.tag || github.ref_name }}"
+          git clone --depth 1 --branch "$ref" \
+            "git@github.com:seacen/OfficeMemoryST.git" src
+          cp src/scripts/release/install.sh artifacts/install.sh
+
+      - name: List what we're publishing
+        run: ls -la artifacts/
+
+      # Create (or update) the GitHub Release on THIS public repo. macOS 12
+      # legacy tarball is NOT here — the author uploads it manually afterward
+      # (M17 §4 P1.3). Mark prereleases for rc tags.
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          prerelease: ${{ contains(github.ref_name, 'rc') }}
+          fail_on_unmatched_files: true
+          files: |
+            artifacts/omem-*-darwin-*.tar.gz
+            artifacts/omem-*-darwin-*.tar.gz.sha256
+            artifacts/install.sh
+          body: |
+            OMem ${{ github.event.inputs.tag || github.ref_name }}
+
+            Install (macOS):
+            ```
+            curl -fsSL https://github.com/seacen/omem/releases/latest/download/install.sh | sh
+            ```
+
+            Builds in this release:
+            - `omem-*-darwin-arm64.tar.gz` — Apple Silicon (macOS 13+)
+            - `omem-*-darwin-x86_64.tar.gz` — Intel (macOS 13+)
+            - `omem-*-darwin-macos12-*.tar.gz` — macOS 12 (uploaded separately)
+
+            Unsigned binary (M17 §2.2): the curl path carries no quarantine, so
+            no Gatekeeper prompt. First launch runs a one-time macOS code-signing
+            check (a few seconds); every launch after is fast.
