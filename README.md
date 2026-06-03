@@ -37,7 +37,7 @@ What makes it different — no other tool sits at this intersection:
 ## Get started
 
 ```bash
-brew install seacen/omem/omem
+curl -fsSL https://github.com/seacen/omem/releases/latest/download/install.sh | sh
 omem setup     # guided wizard, ~5 min
 ```
 
