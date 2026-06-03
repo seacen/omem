@@ -16,11 +16,11 @@
 <a href="https://seacen.github.io/omem/concepts/01-what-is-omem/">What is OMem?</a> ·
 <a href="https://github.com/seacen/omem/issues">Issues</a>
 
-[![release](https://img.shields.io/github/v/release/seacen/omem?style=flat-square&labelColor=2B2A28&color=4A4843&label=release)](https://github.com/seacen/omem/releases/latest)
-[![release date](https://img.shields.io/github/release-date/seacen/omem?style=flat-square&labelColor=2B2A28&color=4A4843&label=released)](https://github.com/seacen/omem/releases/latest)
-[![license](https://img.shields.io/badge/license-PolyForm--NC-4A4843?style=flat-square&labelColor=2B2A28)](./LICENSE)
-[![platform](https://img.shields.io/badge/platform-macOS%20%C2%B7%20Windows%20soon-4A4843?style=flat-square&labelColor=2B2A28)](https://seacen.github.io/omem/getting-started/01-install/)
-[![docs](https://img.shields.io/badge/docs-seacen.github.io%2Fomem-4A4843?style=flat-square&labelColor=2B2A28)](https://seacen.github.io/omem/)
+[![release](https://img.shields.io/github/v/release/seacen/omem?style=flat-square&labelColor=2B2A28&color=E4DCC5&label=release)](https://github.com/seacen/omem/releases/latest)
+[![release date](https://img.shields.io/github/release-date/seacen/omem?style=flat-square&labelColor=2B2A28&color=E4DCC5&label=released)](https://github.com/seacen/omem/releases/latest)
+[![license](https://img.shields.io/badge/license-PolyForm--NC-E4DCC5?style=flat-square&labelColor=2B2A28)](./LICENSE)
+[![platform](https://img.shields.io/badge/platform-macOS%20%C2%B7%20Windows%20soon-E4DCC5?style=flat-square&labelColor=2B2A28)](https://seacen.github.io/omem/getting-started/01-install/)
+[![docs](https://img.shields.io/badge/docs-seacen.github.io%2Fomem-E4DCC5?style=flat-square&labelColor=2B2A28)](https://seacen.github.io/omem/)
 
 </div>
 
