@@ -6,18 +6,19 @@ import remarkGfm from 'remark-gfm';
 import react from '@astrojs/react';
 
 // Deploy target is environment-driven so ONE source serves multiple hosts:
-//   - GitHub Pages → https://seacen.github.io/omem/  (default; base = /omem)
-//   - Tencent EdgeOne Pages → https://<project>.edgeone.app/  (root; base = /)
-//   - a custom root domain later → also root (base = /)
-// Set DOCS_BASE / DOCS_SITE in the build environment to override. On GitHub
-// Pages we leave them unset and fall back to the /omem defaults; on EdgeOne set
-// `DOCS_BASE=/` (and optionally `DOCS_SITE=https://<project>.edgeone.app`).
+//   - local dev + EdgeOne Pages + a custom root domain → root (base = '/', the default)
+//   - GitHub Pages → https://seacen.github.io/omem/  (base = /omem)
+// The DEFAULT is the root path, so `npm run dev` and EdgeOne both Just Work with
+// no env vars. GitHub Pages is the only sub-path host, so its workflow sets
+// `DOCS_BASE=/omem` (and `DOCS_SITE=https://seacen.github.io`). Keeping root as
+// the default means the private and public astro.config files are identical and
+// can be synced verbatim.
 //
 // Starlight's own routing (sidebar, LinkCard, hero, nav) honours `base`
 // automatically. The ~340 absolute internal links hand-written in MDX body text
 // do NOT — so the rehype plugin below prefixes every root-relative internal
 // <a href> with the base at build time. When base is '/', it is a no-op.
-const RAW_BASE = process.env.DOCS_BASE ?? '/omem';
+const RAW_BASE = process.env.DOCS_BASE ?? '/';
 // Normalise: no trailing slash, leading slash. '/' becomes '' so prefixing is a no-op.
 const BASE = RAW_BASE === '/' ? '' : RAW_BASE.replace(/\/$/, '');
 const SITE = process.env.DOCS_SITE ?? 'https://seacen.github.io';
