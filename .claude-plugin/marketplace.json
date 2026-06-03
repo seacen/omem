@@ -1,10 +1,10 @@
 {
-  "name": "seacen-marketplace",
+  "name": "omem-marketplace",
   "owner": {
     "name": "Xichang (Seacen) Zhao",
     "url": "https://github.com/seacen"
   },
-  "description": "Seacen Zhao's personal Claude Code plugin marketplace. Currently hosts OMem (Office Memory) — a local-first work-context memory layer for AI agents.",
+  "description": "The OMem (Office Memory) plugin marketplace — a local-first, agent-agnostic work-context memory layer for AI agents.",
   "plugins": [
     {
       "name": "omem",

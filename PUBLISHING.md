@@ -15,7 +15,7 @@ review queue.
 **User install**:
 ```
 /plugin marketplace add seacen/omem
-/plugin install omem@seacen-marketplace
+/plugin install omem@omem-marketplace
 ```
 
 **Notes**:
