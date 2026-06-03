@@ -5,19 +5,26 @@ import remarkGfm from 'remark-gfm';
 
 import react from '@astrojs/react';
 
-// Deploy target: this docs site lives at https://seacen.github.io/omem/.
-// The site therefore runs under a `/omem` base path. Starlight's own routing
-// (sidebar, LinkCard, hero actions, nav) honours `base` automatically — but the
-// ~340 absolute internal links we hand-wrote in MDX body text (e.g.
-// `[…](/zh-cn/concepts/…)`) do NOT, and would 404 under the base path. Rather
-// than rewrite all of them, this tiny rehype plugin prefixes every root-relative
-// internal <a href> with the base at build time. Idempotent (skips hrefs that
-// already start with the base) and only touches site-internal links (leaves
-// http(s)://, mailto:, #anchors, and data: URIs alone).
-const BASE = '/omem';
+// Deploy target is environment-driven so ONE source serves multiple hosts:
+//   - GitHub Pages → https://seacen.github.io/omem/  (default; base = /omem)
+//   - Tencent EdgeOne Pages → https://<project>.edgeone.app/  (root; base = /)
+//   - a custom root domain later → also root (base = /)
+// Set DOCS_BASE / DOCS_SITE in the build environment to override. On GitHub
+// Pages we leave them unset and fall back to the /omem defaults; on EdgeOne set
+// `DOCS_BASE=/` (and optionally `DOCS_SITE=https://<project>.edgeone.app`).
+//
+// Starlight's own routing (sidebar, LinkCard, hero, nav) honours `base`
+// automatically. The ~340 absolute internal links hand-written in MDX body text
+// do NOT — so the rehype plugin below prefixes every root-relative internal
+// <a href> with the base at build time. When base is '/', it is a no-op.
+const RAW_BASE = process.env.DOCS_BASE ?? '/omem';
+// Normalise: no trailing slash, leading slash. '/' becomes '' so prefixing is a no-op.
+const BASE = RAW_BASE === '/' ? '' : RAW_BASE.replace(/\/$/, '');
+const SITE = process.env.DOCS_SITE ?? 'https://seacen.github.io';
 
 function rehypeBasePrefixLinks() {
     return (tree) => {
+        if (!BASE) return; // root deployment: nothing to prefix
         const visit = (node) => {
             if (node.type === 'element' && node.tagName === 'a' && node.properties) {
                 const href = node.properties.href;
@@ -39,8 +46,8 @@ function rehypeBasePrefixLinks() {
 
 // https://astro.build/config
 export default defineConfig({
-    site: 'https://seacen.github.io',
-    base: '/omem',
+    site: SITE,
+    base: RAW_BASE,
     // GFM (pipe tables, strikethrough, autolinks) is on for plain Markdown by
     // default, but the .mdx pipeline used by our concept/reference pages does
     // NOT reliably inherit it under Astro 6 + Starlight's injected MDX
