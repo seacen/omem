@@ -18,6 +18,12 @@ permissions:
   pages: write
   id-token: write
 
+# Opt the bundled actions (checkout / setup-node / upload-artifact / deploy-pages)
+# into Node 24 now, ahead of GitHub forcing it on 2026-06-16 — clears the Node 20
+# deprecation warning. Safe to remove once those actions ship Node 24 by default.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 # One in-flight deployment at a time; don't cancel a running publish.
 concurrency:
   group: pages
