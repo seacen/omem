@@ -37,7 +37,12 @@ jobs:
           cache: npm
           cache-dependency-path: docs-site/package-lock.json
       - run: npm ci
+      # GitHub Pages serves under /omem; tell Astro to build for that sub-path.
+      # (Local dev + EdgeOne use the root-path default, so they set nothing.)
       - run: npx astro build
+        env:
+          DOCS_BASE: /omem
+          DOCS_SITE: https://seacen.github.io
       - uses: actions/upload-pages-artifact@v3
         with:
           path: docs-site/dist
