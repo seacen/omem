@@ -54,9 +54,11 @@ jobs:
       fail-fast: false   # one arch failing shouldn't kill the other
       matrix:
         include:
-          - runner: macos-14         # Apple Silicon (arm64)
-            arch: arm64
-            label: arm64
+          # arm64 is NOT built in CI (2026-06-03 author decision): the arm64
+          # release was built + published manually from the author's M4 Pro and
+          # is the shipped artifact. CI exists only to produce the Intel build
+          # the author can't make locally (no Intel host). To re-enable arm64 in
+          # CI later, add a `{runner: macos-14, arch: arm64, label: arm64}` row.
           - runner: macos-15-intel   # last x86_64 image (EOL ~2027-08)
             arch: x86_64
             label: x86_64
@@ -137,32 +139,19 @@ jobs:
       - name: List what we're publishing
         run: ls -la artifacts/
 
-      # Create (or update) the GitHub Release on THIS public repo. macOS 12
-      # legacy tarball is NOT here — the author uploads it manually afterward
-      # (M17 §4 P1.3). Mark prereleases for rc tags.
-      - name: Publish to GitHub Releases
+      # APPEND the Intel build to the (already-published) release for this tag.
+      # arm64 + install.sh were published manually first; this job adds the
+      # Intel tarball + its alias + sha256 to the SAME release. We deliberately:
+      #   - do NOT set `clean` → existing assets (arm64, install.sh) are kept.
+      #   - do NOT pass `body`/`name`/`prerelease` → the release's title, notes,
+      #     and GA/prerelease status set at manual publish time are untouched.
+      # So a `v1.0.0` tag here only ADDS Intel assets; it never overwrites the
+      # arm64 release. macOS 12 legacy is uploaded separately (M17 §4 P1.3).
+      - name: Append Intel build to the release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
-          prerelease: ${{ contains(github.ref_name, 'rc') }}
           fail_on_unmatched_files: true
           files: |
-            artifacts/omem-*-darwin-*.tar.gz
-            artifacts/omem-*-darwin-*.tar.gz.sha256
-            artifacts/install.sh
-          body: |
-            OMem ${{ github.event.inputs.tag || github.ref_name }}
-
-            Install (macOS):
-            ```
-            curl -fsSL https://github.com/seacen/omem/releases/latest/download/install.sh | sh
-            ```
-
-            Builds in this release:
-            - `omem-*-darwin-arm64.tar.gz` — Apple Silicon (macOS 13+)
-            - `omem-*-darwin-x86_64.tar.gz` — Intel (macOS 13+)
-            - `omem-*-darwin-macos12-*.tar.gz` — macOS 12 (uploaded separately)
-
-            Unsigned binary (M17 §2.2): the curl path carries no quarantine, so
-            no Gatekeeper prompt. First launch runs a one-time macOS code-signing
-            check (a few seconds); every launch after is fast.
+            artifacts/omem-*-darwin-x86_64.tar.gz
+            artifacts/omem-*-darwin-x86_64.tar.gz.sha256
