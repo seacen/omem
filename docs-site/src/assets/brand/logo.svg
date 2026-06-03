@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  OMem · primary logo (full lockup, ink on paper)
+  Use on light backgrounds (paper #F5F1E8, white).
+  Mark: Z · Ex Libris · Z-1b 标准间距 OM + EX OFFICIO + MEMORIA
+  fill = currentColor — set CSS color on the parent to recolor for dark surfaces.
+  Fonts: 'EB Garamond' (italic 500) for OM, 'Cormorant Garamond' for Latin words.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="OMem Ex Officio Memoria seal">
+  <style><![CDATA[
+    /* Inline-embedded SVG inherits parent CSS color via currentColor.
+       For <img src=…> usage the SVG is isolated, so we set defaults here
+       and auto-flip under dark UA preference. */
+    svg { color: #2B2A28; }
+    @media (prefers-color-scheme: dark) { svg { color: #F5F1E8; } }
+  ]]></style>
+  <rect x="4" y="4" width="92" height="92" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <rect x="8.5" y="8.5" width="83" height="83" rx="2" fill="none" stroke="currentColor" stroke-width="0.7"/>
+  <text x="50" y="22" font-family="'Cormorant Garamond', 'EB Garamond', Garamond, serif" font-weight="500" font-size="6.5" fill="currentColor" text-anchor="middle" letter-spacing="2">EX OFFICIO</text>
+  <line x1="42" y1="27" x2="58" y2="27" stroke="currentColor" stroke-width="0.4"/>
+  <text x="50" y="60" font-family="'EB Garamond', Garamond, serif" font-style="italic" font-weight="500" font-size="36" fill="currentColor" text-anchor="middle">OM</text>
+  <line x1="20" y1="74" x2="80" y2="74" stroke="currentColor" stroke-width="0.7"/>
+  <text x="50" y="84" font-family="'Cormorant Garamond', 'EB Garamond', Garamond, serif" font-style="italic" font-weight="400" font-size="5.5" fill="currentColor" text-anchor="middle" letter-spacing="1.8">MEMORIA</text>
+</svg>

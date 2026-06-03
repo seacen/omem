@@ -1,0 +1,80 @@
+---
+title: 摄入邮件
+description: 在 macOS 上从 Apple Mail 的本地存储里摄入你的邮件。授予完全磁盘访问权限,挑好账号、文件夹和时间窗口,OMem 就会把每条邮件会话整理成一页 wiki。
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+**如果你想让 OMem 摄入你的邮件**,那就看这一页。在 macOS 上,它读的是 Apple Mail 的本地存储(`mail-app`)——你那些 Exchange / IMAP 账号同步下来的邮件,本来就攒在这里——所以既不用开浏览器自动化,也不碰 Graph API。
+
+<Aside type="note" title="Outlook 账号走 Apple Mail 就行">
+要是你把工作上的 Exchange 账号配进了 macOS 邮件,那这些工作邮件其实早就落在 Apple Mail 的本地存储里,OMem 够得着。专门的 Outlook 数据源(`outlook-classic`、`outlook-web`)设计是有了,但推迟到 v1.5+;在 v1.0 里,邮件就走 `mail-app`。
+</Aside>
+
+## 第一步——授予完全磁盘访问权限
+
+邮件存在一个受保护的位置,所以 OMem 需要**完全磁盘访问权限(Full Disk Access)**——而这个权限,macOS 从不主动弹窗问你要:
+
+```bash
+omem setup --grant-tcc
+```
+
+它会打开 系统设置 → 隐私与安全性 → 完全磁盘访问权限,并把 `omem` 这个二进制亮出来,方便你加进去。**要加的是 `omem` 本身**,不是终端——至于为什么这对定时任务很关键,看 [setup 向导里那段权限说明](/zh-cn/getting-started/02-setup-wizard/#授予-macos-访问权限)。
+
+## 第二步——配置范围
+
+<Steps>
+
+1. **账号**——摄入哪几个邮件账号(留空 = 全部已配账号):
+
+   ```bash
+   omem config set kinds.mail.source_config.accounts '["you@company.com"]'
+   ```
+
+2. **文件夹**——默认是收件箱 + 已发送;想要更全就放宽:
+
+   ```bash
+   omem config set kinds.mail.scope.folders '["inbox", "sent", "archive"]'
+   ```
+
+3. **时间窗口**——往回够多久(默认 3 个月):
+
+   ```bash
+   omem config set kinds.mail.scope.time_window.since 6m_ago
+   ```
+
+4. **打开这一类,然后摄入:**
+
+   ```bash
+   omem config set kinds.mail.enabled true
+   omem ingest --kind mail
+   ```
+
+</Steps>
+
+## 一条会话,一页
+
+OMem 会把**一整条邮件会话整理成一页 wiki**——不是一条消息一页。一来一回六封的对话,会变成一页连贯的内容,把整段往来都收进去;这样既更省钱(只调一次整理),查起来也比六个碎片有用得多。会话里夹的附件也会一并解析,各走 [对应格式的解析器](/zh-cn/reference/03-file-formats/)。
+
+## 其余的范围旋钮
+
+| 配置项 | 默认值 | 作用 |
+|---|---|---|
+| `kinds.mail.scope.max_messages_per_account` | `5000` | 每个账号的上限。 |
+| `kinds.mail.scope.max_message_size_mb` | `50` | 比这个大的消息跳过(会留一行只含元数据)。 |
+| `kinds.mail.scope.include_attachments` | `true` | 摄入附件。 |
+| `kinds.mail.scope.max_attachment_size_mb` | `50` | 更大的附件跳过(同样留一行只含元数据)。 |
+
+## 确认它跑成了
+
+```bash
+omem query "你记得讨论过的某件事" --kind mail
+omem wiki ls --kind mail
+```
+
+一条都查不出来?看 **[邮件什么都查不出来](/zh-cn/troubleshooting/02-common-errors/)**——多半是 FDA 没给、时间窗口卡太窄,或者文件夹名字对不上。
+
+## 接下来
+
+- **[摄入日历](/zh-cn/how-to/03-ingest-calendar/)**——日程也走同一套本地优先的路子。
+- **[邮件什么都查不出来](/zh-cn/troubleshooting/02-common-errors/)**——几个常见的修法。

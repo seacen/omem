@@ -1,0 +1,267 @@
+---
+title: Configuration schema
+description: Every config.yaml field OMem reads — type, default, what each value means, and when to change it. Covers the decision points (qmd query modes, LLM providers, curator modes, image policy) in depth, not just field names.
+---
+
+import ConfigTree from '../../../components/ConfigTree.tsx';
+import { Aside } from '@astrojs/starlight/components';
+
+**Read this if** you want to tune OMem beyond what the wizard set, and you want to know not just *what* a field is but *what each value means and when to pick it*. The decision points — how qmd searches, which LLM provider, how images are handled — get a full explanation here; the mechanical knobs get a compact table.
+
+## Where it lives, and how to read it
+
+Your config is a single YAML file at:
+
+```
+~/.config/omem/config.yaml
+```
+
+(or `$XDG_CONFIG_HOME/omem/config.yaml` if you've set that). OMem writes a default skeleton on first run and migrates it forward automatically on load.
+
+There is **no `omem config schema` command**. To inspect the effective config — validated, with defaults filled in — use:
+
+```bash
+omem config show              # effective config (YAML)
+omem config show --json       # same, as JSON
+omem config show --raw        # the file verbatim (useful if it won't parse)
+omem config get llm.curator.model              # read one value
+omem config set kinds.mail.scope.time_window.since 6m_ago   # write one value
+```
+
+`config set` takes JSON for non-string values: `omem config set kinds.file.scope.exclude_patterns '["~$*", "*.tmp"]'`.
+
+## Browse the schema
+
+The schema is one nested tree. **Expand a section and click a field** to see its type, default, and what it controls — the two high-risk fields are marked:
+
+<ConfigTree client:load />
+
+The rest of this page walks the fields section by section. The ones with real choices to make are explained in full; the mechanical ones are tabled.
+
+---
+
+## The decision points
+
+These are the handful of fields where the value genuinely changes how OMem behaves. They're worth understanding before you touch them.
+
+### `plugins.qmd.query_mode` — how qmd searches
+
+Only relevant if you've enabled the [`qmd`](/concepts/08-retrieval/) index. It picks which retrieval paths qmd runs, trading **speed for precision**. The numbers below are measured on a single small page (4 documents); the gap between cold and warm matters because the embedding and reranker models load lazily on first use.
+
+| Value | What runs | Speed | When to pick it |
+|---|---|---|---|
+| `bm25` | FTS5 keyword search only — no LLM, no vectors. | ~2 s | You want qmd's plumbing but essentially keyword behavior; fastest possible. |
+| `vector` | Vector similarity only (no keyword path). | ~85 s cold, ~3–5 s warm | Rarely the best pick — dropping the keyword path *lowers* recall vs `no-rerank`. |
+| `no-rerank` | Hybrid: BM25 **+** vector **+** LLM query expansion, reranker **off**. | ~4 s warm | **The recommended everyday mode.** Precision is essentially the same as `full` at a fraction of the cost. |
+| `full` *(default)* | `no-rerank` **+** a cross-encoder reranker (qwen3-reranker). | ~365 s cold, ~5–10 s warm | Maximum precision when you can absorb the reranker's cold-start; on lighter hardware the reranker is the expensive part. |
+
+**The practical advice:** `full` is the default because it's the most precise, but `no-rerank` is the one most people should run day to day — it keeps the hybrid recall (the part that finds cross-language and semantic matches) and only drops the reranker, which adds latency for a modest precision gain. Set it with:
+
+```bash
+omem config set plugins.qmd.query_mode no-rerank
+```
+
+<Aside type="note" title="Why “vector only” isn’t the smart choice">
+It's tempting to think "pure vector = most semantic = best." In practice vector-only **removes** the BM25 keyword path, so exact names, codenames, and invoice numbers — the things keyword search nails — get averaged away. `no-rerank` runs *both* paths and fuses them, which is why it beats `vector` on recall.
+</Aside>
+
+### `llm.curator.provider` / `llm.vlm.provider` — where the LLM calls go
+
+OMem never ships a model; you point it at one. The curator (text → wiki) and the VLM (image → description) are configured **independently** and can use different providers. Four are supported:
+
+| Value | What it is | You need |
+|---|---|---|
+| `anthropic-oauth` *(default)* | Your Claude Pro / Max subscription via OAuth. No API key to manage. | A Claude subscription; auth is handled in `omem setup`. |
+| `anthropic-api` | The Anthropic API directly, billed per token. | An `ANTHROPIC_API_KEY`. |
+| `openai-compat` | Any OpenAI-compatible endpoint — OpenAI, a local server, or a hosted gateway. | A `base_url` + an API key. |
+| `openai-chatgpt-oauth` | A ChatGPT Plus / Pro subscription via the Codex backend. | A ChatGPT subscription; auth in `omem setup`. |
+
+The `openai-compat` path is the escape hatch: it's how you run a **local** model (point `base_url` at your local server) or any provider that speaks the OpenAI API. The matching fields are `base_url`, `api_key_env`, and `api_key_keychain`.
+
+<Aside type="caution" title="Never put the key in the file">
+Store API keys in an env var (`api_key_env`) or the macOS Keychain (`api_key_keychain`) — never inline in `config.yaml`. The keychain path wins when both are set. The two OAuth providers need no key at all.
+</Aside>
+
+### `curator.mode.<format>` — rewrite, or keep verbatim
+
+For each format, the curator runs in one of two modes:
+
+| Value | What it does | Best for |
+|---|---|---|
+| `llm-full` | The LLM rewrites the document into a clean wiki page (and writes the abstract + tags). | Formats where structure is messy and a rewrite genuinely helps: `pdf`, `docx`, `pptx`, `xlsx`, `html` (the defaults). |
+| `frontmatter-only` | The body is copied **byte-for-byte** from the parsed source; the LLM only writes the abstract + tags. | Already-clean formats: `md`, `txt` (the defaults). Cheaper, and preserves exact structure. |
+
+There's a counter-intuitive upside to `frontmatter-only`: because the body isn't rewritten, **exact numbers and wording survive** — a full rewrite can quietly round `11.3%` to `11%`, while a verbatim copy can't. If you find the curator is smoothing important details on a format, switching it to `frontmatter-only` is a fix.
+
+```bash
+omem config set curator.mode.html frontmatter-only   # stop rewriting HTML bodies
+```
+
+`curator.cross_language_auto_promote` (default `true`) is the safety net: if a source's language differs from `output.language`, OMem forces `llm-full` so you don't end up with a Chinese body under an English abstract.
+
+### `parser.images.<format>` — how images inside a document are handled
+
+Each format decides what happens to pictures embedded in it:
+
+| Value | What happens | Cost |
+|---|---|---|
+| `ocr` | Run OCR (RapidOCR), extracting text from the image. | Cheap; great for text-in-images. |
+| `vlm` | Send the image to a vision model, which writes a description. | An LLM call per qualifying image; best for charts, screenshots, diagrams. |
+| `off` | Extract the image to `assets/` but don't describe it. | Free; the image isn't searchable. |
+
+The defaults are deliberate: **`pdf` defaults to `ocr`** (PDFs are mostly text, so per-page vision would burn tokens for little gain), while `pptx` / `docx` / `xlsx` / `standalone` / `mail` / `calendar` default to **`vlm`** (their images are usually content). A common tweak is `parser.images.mail off` to skip describing email signature art:
+
+```bash
+omem config set parser.images.mail off
+```
+
+See [file formats](/reference/03-file-formats/) for which images actually clear the "worth describing" filter.
+
+### `*concurrency` — how many things run at once
+
+Four knobs control parallelism. The two `_global_concurrency` caps are the safety valves — they bound how many provider calls happen simultaneously no matter how high the worker pools go:
+
+| Field | Default | Controls |
+|---|---|---|
+| `llm.global_concurrency` | `4` | Hard cap on simultaneous **LLM** calls across the whole process. `4` stays under Pro/Max OAuth's ~4–8 RPM; raise it on high-quota endpoints. |
+| `parser.vlm_global_concurrency` | `3` | Hard cap on simultaneous **vision-model** calls. |
+| `ingest.curate_concurrency` | `2` | Worker pool for items *within* one kind. |
+| `ingest.kind_concurrency` | `2` | Worker pool for kinds *in parallel* (file + mail + calendar at once). |
+
+These defaults are a **conservative baseline** tuned to run safely on an ordinary Mac (an 8 GB mac mini included), not a ceiling. The two worker pools multiply — `kind × curate` = how many items sit in the pipeline at once (here 2×2 = 4), which is the main driver of memory use. The two `global_concurrency` caps bound actual provider calls. **Raise them** if you have a roomy machine or a high-quota API key (`omem config set llm.global_concurrency 16`); **lower the globals** if you hit rate limits; set any to `1` for strictly serial debugging. All four have env-var overrides (e.g. `OMEM_LLM_GLOBAL_CONCURRENCY`).
+
+### `data.root` / `data.wiki_path` — ⚠ the two you don't hand-edit
+
+| Field | Default | What it is |
+|---|---|---|
+| `data.root` | `"~/.local/share/omem"` | Internal cache: the content-addressed `raw/` archive + the SQLite db. You never browse it by hand. |
+| `data.wiki_path` | `"~/omem/wiki"` | The user-visible vault of Markdown pages. |
+
+:::danger[Don't hand-edit these two]
+Changing `data.root` orphans every cached item — the next run can't find the old `raw/` archive and effectively starts over. Changing `data.wiki_path` by hand leaves the old wiki stranded and unread. **To move the vault, use [`omem wiki move`](/reference/01-cli-commands/#move-the-wiki)** — it relocates the files *and* re-points the index. These are the only two fields that can strand your data.
+:::
+
+---
+
+## The rest, by section
+
+The remaining fields are mechanical — set once, rarely revisited.
+
+### Top level
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `config_version` | int | `1` | Schema version pin for migrations. |
+| `active_index` | `"fts5" \| "qmd"` | `"fts5"` | The live index backend. Switch it with `omem plugin enable`, not by hand. |
+| `output.language` | `"auto" \| "zh" \| "en"` | `"auto"` | Language the curator writes in. `auto` follows the source document; `zh`/`en` force it. |
+
+### `llm` (beyond provider)
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `llm.curator.model` | str | `""` | Model name. Empty by design — the wizard fills it. |
+| `llm.curator.base_url` | str \| null | `null` | Endpoint override for `openai-compat`. |
+| `llm.curator.api_key_env` | str \| null | `null` | Env var name holding the API key. |
+| `llm.curator.api_key_keychain` | str \| null | `null` | Keychain account holding the key (service `omem-llm`). Wins over `api_key_env`. |
+| `llm.curator.fallback_model` | str \| null | `"claude-opus-4-8"` | OAuth-only fallback when a prompt exceeds the threshold below. |
+| `llm.curator.fallback_token_threshold` | int | `180000` | Token count that triggers the fallback model. |
+| `llm.curator.max_output_tokens` | int \| null | `null` | Hard cap on output tokens; `null` uses the provider/model default. |
+| `llm.vlm.*` | — | — | Same fields as `llm.curator.*`, for the vision model. |
+
+### `parser` (beyond images)
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `parser.max_images_per_doc` | int 1–10000 | `200` | Per-document OCR/VLM image cap; extras are extracted but not described (logged, never silent). |
+| `parser.ocr_subprocess_batch` | int 0–1000 | `20` | Restart the OCR worker every N images to bound memory. `0` disables isolation (debug only). |
+
+### `ingest` (beyond concurrency)
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `ingest.formats.{pdf,docx,pptx,xlsx,md,txt,html,image}` | bool | `true` | Per-format master switch, applied across **every** source — set `false` to never ingest that format, attachments included. |
+
+### `schedule`
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `schedule.interval_minutes` | int | `0` | The interval `omem install` uses. Set by the wizard; `0` disables auto-ingest. `omem install` reads this — you don't repeat it as a flag. |
+
+### `setup`
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `setup.wizard_language` | `"zh" \| "en"` | `"zh"` | Onboarding UI language. English users switch at the wizard's first step. |
+
+### `plugins.qmd` (beyond query_mode)
+
+Present only after `omem plugin install qmd`; `null` otherwise.
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `plugins.qmd.subprocess_timeout_sec` | int | `600` | Per-call timeout. `600` covers a warm full-mode run; raise to `3600` for a cold full-mode rebuild. Env: `OMEM_QMD_SUBPROCESS_TIMEOUT_SEC`. |
+| `plugins.qmd.index_name` | str | `"omem"` | qmd collection namespace (isolates OMem's index from other qmd users). |
+| `plugins.qmd.executable_path` | str | (filled at install) | Path to the `qmd` binary. |
+
+### `kinds.{file,mail,calendar,loop}`
+
+Every kind ships **`enabled: false`** — a clean install ingests nothing until the wizard turns a kind on.
+
+#### `kinds.file`
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `kinds.file.enabled` | bool | `false` | |
+| `kinds.file.source` | str | `"local-files"` | |
+| `kinds.file.source_config.roots` | list[str] | `[]` | Folders to ingest. The wizard auto-detects OneDrive / iCloud / Dropbox / Documents. |
+| `kinds.file.scope.max_file_size_mb` | int | `50` | Skip files larger than this. |
+| `kinds.file.scope.exclude_patterns` | list[str] | `["~$*", ".DS_Store", "node_modules/**"]` | Glob excludes. |
+| `kinds.file.scope.failed_quarantine_cap` | int | `200` | Cap on the retried-failure list size. |
+| `kinds.file.tombstone_mode` | `full_sweep \| skip` | `"full_sweep"` | `full_sweep` re-checks for deletions every run; `skip` disables it for very large, slow-disk corpora. |
+
+#### `kinds.mail`
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `kinds.mail.enabled` | bool | `false` | |
+| `kinds.mail.source` | str | `"mail-app"` | Apple Mail's local store. Outlook sources are v1.5+. |
+| `kinds.mail.source_config.accounts` | list[str] | `[]` | Accounts to ingest. |
+| `kinds.mail.scope.time_window.since` | time-str | `"3m_ago"` | How far back to reach. Grammar below. |
+| `kinds.mail.scope.time_window.until` | time-str \| null | `null` | Upper bound; `null` = no upper bound. |
+| `kinds.mail.scope.folders` | list[str] | `["inbox", "sent"]` | Lowercase semantic folder names. |
+| `kinds.mail.scope.max_messages_per_account` | int | `5000` | |
+| `kinds.mail.scope.include_attachments` | bool | `true` | |
+| `kinds.mail.scope.max_attachment_size_mb` | int | `50` | |
+| `kinds.mail.tombstone_mode` | `full_sweep \| skip` | `"full_sweep"` | |
+
+#### `kinds.calendar`
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `kinds.calendar.enabled` | bool | `false` | |
+| `kinds.calendar.source` | str | `"calendar-app"` | Apple Calendar's local store — **not** Outlook Web. |
+| `kinds.calendar.scope.time_window.since` | time-str | `"3m_ago"` | |
+| `kinds.calendar.scope.time_window.until` | time-str | `"3m_from_now"` | Symmetric window: recent past + near future. |
+| `kinds.calendar.scope.include_recurring_instances` | bool | `true` | Expand each occurrence of a recurring event. |
+| `kinds.calendar.scope.max_events_per_account` | int | `5000` | |
+| `kinds.calendar.scope.calendars` | list[str] \| null | `null` | Sub-calendar whitelist; `null` = all sub-calendars. |
+| `kinds.calendar.scope.include_attachments` | bool | `true` | |
+| `kinds.calendar.tombstone_mode` | `full_sweep \| skip` | `"full_sweep"` | |
+
+#### `kinds.loop`
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `kinds.loop.enabled` | bool | `false` | |
+| `kinds.loop.source` | str | `"loop-resolver"` | |
+| `kinds.loop.source_config.chromium_profile_dir` | str | `"~/.config/omem/sessions/browser-profile"` | Persisted browser profile for SSO. |
+| `kinds.loop.scope.max_fetch_concurrency` | int | `2` | Concurrent Loop page fetches. |
+
+<Aside type="note" title="The since / until grammar">
+Time-window fields accept: relative anchors `N{d,w,m,y}_ago` / `N{d,w,m,y}_from_now` (e.g. `3m_ago`, `2w_from_now`), an ISO date (`2026-01-01`), or an ISO datetime. Anything else is rejected at load time — a typo fails loudly rather than silently widening your window.
+</Aside>
+
+## What's next
+
+- **[CLI commands](/reference/01-cli-commands/)** — the commands that read this config.
+- **[File formats](/reference/03-file-formats/)** — how `parser.images.*`, `ingest.formats.*`, and `curator.mode.*` combine per format.

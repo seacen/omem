@@ -1,0 +1,49 @@
+---
+title: Progressive disclosure
+description: Why OMem hands an agent a one-line summary first and the full document only on demand — the L0–L3 layers that keep retrieval cheap, and how each layer maps to a command.
+---
+
+import ProgressiveDisclosure from '../../../components/ProgressiveDisclosure.tsx';
+import { Aside } from '@astrojs/starlight/components';
+
+**Read this if** you've wondered why `omem query` gives you a short summary instead of the whole document, or you're wiring an agent to OMem and want it to spend tokens wisely. This page explains the four layers of detail OMem exposes, and when to reach for each.
+
+## The problem with "just give me everything"
+
+The naive way to give an agent your work context is to dump whole documents into its prompt. It doesn't scale: a single deck might be 8,000 tokens, an email thread 5,000, a spreadsheet 10,000. Ask about "last quarter's budget" and a naive system loads ten documents to find the one that matters — 80,000 tokens spent before the agent has even started thinking.
+
+An agent shouldn't have to read a document to decide whether it's relevant. It should be able to *skim*, then *open* only what it needs. That's progressive disclosure.
+
+## Four layers, cheapest first
+
+OMem exposes every page at four levels of detail. The agent starts at the cheapest and drills down only as far as the question requires. **Click each layer** to see what it costs and what you get:
+
+<ProgressiveDisclosure client:load />
+
+Most questions are answered at **L0 + L1** — roughly 2,000 tokens total. The agent skims the L0 summaries to find the right page, opens that one page at L1, and answers. L2 and L3 exist for the cases where the curated page genuinely isn't enough: the agent needs an exact table row, a figure's details, or the original file in its native format.
+
+The design borrows from ByteDance's OpenViking, which pioneered tiered context loading for agents (skim L0 → plan at L1 → load the full thing only when needed). OMem applies the same discipline to office data: don't pay for depth you don't need.
+
+## Why L0 is nearly free
+
+A reasonable worry: doesn't generating a one-sentence summary for every page cost an LLM call? It does — but it's already paid for. The L0 abstract is written during the same curation step that produces the L1 wiki page. The full document is already in the prompt at that moment, so adding "...and a one-sentence summary" is marginal. By the time you query, L0 is just a field in the database — no file I/O, no LLM call.
+
+<Aside type="note" title="The same idea, from the agent's side">
+[Querying from an agent](/concepts/07-querying-from-an-agent/) covers the other half of this: how a well-behaved agent actually walks these layers — starting at L0 with a wide net, reading L1, and only escalating to L2/L3 when the answer demands it.
+</Aside>
+
+## When L3 isn't there
+
+Not every kind of work has an "original file." A `file` page (a `.docx`, a `.pdf`) does — L3 opens it. But a `mail`, `calendar`, or `loop` page has no single file on disk to open. For those, **L3 gracefully falls back to L2**: the parsed Markdown is the most complete view available, and it's complete enough — the full thread, the full event, image descriptions included.
+
+This is deliberate. Rather than fail or return an error when an agent asks for L3 on an email, OMem returns the richest layer that exists. The agent never hits a dead end.
+
+## Where the layers come from
+
+Progressive disclosure isn't a feature bolted on top — it's a direct consequence of how OMem stores things. The three storage layers (`raw/` archive → curated `wiki/` → indexes) line up almost exactly with the disclosure layers:
+
+- L0 and L1 live in the **wiki** (the abstract is a field; the page is the file).
+- L2 is the parser output in the immutable **`raw/`** archive.
+- L3 is the **original source**, wherever it already lives on your disk.
+
+So when you read about [the wiki being the truth](/concepts/06-design-principles/) and [the ingest lifecycle](/concepts/04-ingest-lifecycle/), keep this mapping in mind: the storage architecture *is* the disclosure architecture.

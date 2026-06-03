@@ -1,0 +1,59 @@
+---
+title: Ingest Loop notes
+description: Ingest Microsoft Teams Loop pages. OMem finds .loop pointers in your synced OneDrive, resolves them to SharePoint, and scrapes the rendered content via a one-time browser sign-in.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+**Read this if** you keep meeting notes in Microsoft Teams Loop and want them in OMem. Loop is the one source that needs a one-time browser sign-in, because a `.loop` file isn't really a document — it's a pointer to content that lives in SharePoint.
+
+## Why Loop is different
+
+A `.loop` file synced to your OneDrive is a binary Fluid snapshot — the actual note content isn't in it; it's on SharePoint. So OMem [dispatches the pointer](/concepts/06-design-principles/) (design principle P8): it reads the SharePoint URL from your OneDrive sync database, opens the page in a headless browser using your existing sign-in, and scrapes the rendered note as Markdown. That's why Loop needs two things the other sources don't: OneDrive must be syncing, and you sign in once.
+
+## Turn it on
+
+<Steps>
+
+1. **Sign in once.** This opens a browser window for your Microsoft sign-in and saves the session:
+
+   ```bash
+   omem setup --browser
+   ```
+
+2. **Enable and ingest:**
+
+   ```bash
+   omem config set kinds.loop.enabled true
+   omem ingest --kind loop
+   ```
+
+</Steps>
+
+Fetching is **slow by nature** — roughly 30 seconds per page, because each one renders in a real browser. OMem fetches a couple at a time (`kinds.loop.scope.max_fetch_concurrency`, default 2).
+
+## Confirm it worked
+
+```bash
+omem query "the notes from the planning sync" --kind loop
+omem wiki ls --kind loop
+```
+
+## When it fails
+
+Loop has more moving parts than the local sources, so it has the most specific failure modes:
+
+- **`LoopSyncEngineDbNotFound`** — OneDrive isn't syncing, or its database isn't where OMem expects. Make sure OneDrive is running and signed in.
+- **`LoopFetchTimeout`** — the SharePoint page didn't render in time (slow network, or the page is large).
+- **Session expired** — re-run `omem setup --browser` to refresh the sign-in.
+
+See **[Loop fetch failed](/troubleshooting/02-common-errors/#loop-fetch-failures)** for the full diagnosis.
+
+<Aside type="caution" title="It fetches from SharePoint, not the .loop file">
+Because the real content is on SharePoint, OMem can only fetch what your account can still access there. If a note's SharePoint permissions changed, OMem can't resolve it even though the `.loop` file is still on your disk.
+</Aside>
+
+## What's next
+
+- **[Loop fetch failed](/troubleshooting/02-common-errors/#loop-fetch-failures)** — fixing the errors above.
+- **[The pointer-dispatch pattern](/concepts/06-design-principles/)** — the design idea Loop drives.

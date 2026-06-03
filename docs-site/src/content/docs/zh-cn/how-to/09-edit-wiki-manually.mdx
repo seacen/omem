@@ -1,0 +1,52 @@
+---
+title: 手动改 wiki
+description: 你的 wiki 就是一堆你自己说了算的纯 Markdown 文件。你可以直接读它、grep 它、改它、纳入版本管理，也可以用 Obsidian 或任何编辑器打开——这一页还讲清楚：一处手改，下次摄入还在不在。
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+**适合这样的你**：想把 OMem 的 wiki 当成它本来的样子来用——一个文件夹，里面是一堆你完全说了算的纯 Markdown 文件。你可以读它、`grep` 它、改某一页，或者干脆把整个 vault 拖进 Obsidian 打开。这一页还会回答那个最要紧的问题：**手改一页，下次摄入它还在不在？**
+
+## 它就是你硬盘上的 Markdown
+
+你的 wiki 默认放在 `~/omem/wiki`（你把 `data.wiki_path` 设到哪它就在哪）。里面每一页就是一个 `.md` 文件，按 kind 和账号分好（比如 `wiki/mail/<account>/…`），每个文件都是一段 YAML frontmatter 加一段 Markdown 正文。没有任何私有格式——用 Finder 翻、用文本编辑器改、用 `grep` 搜，或者把 Obsidian 指向这个文件夹，全都行。
+
+```bash
+grep -ri "margin target" ~/omem/wiki    # 直接搜原始文件
+open ~/omem/wiki                          # 在 Finder 里翻
+```
+
+这就是 [设计原则 P3](/zh-cn/concepts/06-design-principles/)：wiki 才是真相，而不是一个藏起来的索引。你的 agent 读到什么，你就能原样读到什么。
+
+## 手改一页，下次摄入还在吗？
+
+**在——只要源头没变。** 规则说得更准一点是这样：
+
+- OMem 只在**源内容变了**的时候才重写一页的正文。每个条目都按内容算了指纹；只要字节没动，整理器的缓存就命中，**OMem 压根不碰 wiki 正文**。你的改动留着。
+- 但要是你改的是*源头*本身（那个原始文件、那封邮件），它的指纹就变了，下次摄入会把这一页重新整理一遍，**你手改的正文也就被一份新整理覆盖掉了**。
+
+所以，对那些源头稳定的页面，手改既安全又长久——修一句摘要、加一条备注、改个名字，它一轮一轮跑下去都还在。只要记住一点：要是你一边手改某一页、一边又老在动它背后那个文件，那就是在跟流水线较劲。
+
+<Aside type="tip" title="一个好用的心智模型">
+手改 wiki，是为了*把 OMem 整理出来的东西再打磨一下*（理顺一页、补点上下文）。要是你发现自己每次摄入完都得把同一页重改一遍，那说明这一页的源头一直在变——去源头那边修，或者干脆接受它每次都会重新整理。
+</Aside>
+
+## 纳入版本管理
+
+正因为它就是一堆普通文件，整个 vault 跟 git 处得很好：
+
+```bash
+cd ~/omem/wiki
+git init && git add -A && git commit -m "snapshot"
+```
+
+这样一来，每次摄入改了什么，都会以一个 diff 摆在你面前供你审，而且你有了完整历史。（你要是更喜欢，也可以把 `data.wiki_path` 指向某个现成 git 仓库里的文件夹。）
+
+## 当成 Obsidian vault 用
+
+把 wiki 路径设成一个 Obsidian vault（或者直接把默认文件夹当成一个 vault 打开），你就拿到了反向链接、关系图谱，以及对这份自动生成的工作记忆的全文搜索——想动手的地方你手改，不想管的地方让它自己重新生成。
+
+## 接下来
+
+- **[备份与迁移](/zh-cn/how-to/10-backup-and-migrate/)**——挪走 vault，留好归档。
+- **[设计原则 → P3](/zh-cn/concepts/06-design-principles/)**——为什么说 wiki 才是真相之源。

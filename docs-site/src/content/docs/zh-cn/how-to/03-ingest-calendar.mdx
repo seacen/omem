@@ -1,0 +1,84 @@
+---
+title: 摄入日历
+description: 从 macOS 日历的本地存储里摄入你的日程事件。Exchange、iCloud、CalDAV 账号统统从这里走。可以自己配时间窗口、挑要纳入哪几个子日历。
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+**如果你想让 OMem 摄入你的日程事件**,那就看这一页。在 macOS 上,它直接读 Apple Calendar 的本地存储(`calendar-app`)——所以 Exchange、iCloud、CalDAV 账号全从这一个数据源流进来,跟 [邮件](/zh-cn/how-to/02-ingest-mail/) 的做法如出一辙。
+
+<Aside type="note" title="读的是本地存储,不是 Outlook Web">
+默认数据源是 `calendar-app`,读的是本地那个日历数据库。早先的设计曾让日历走浏览器抓取的 Outlook Web;后来改了,因为读本地存储更稳。日历这一块,你用不着浏览器会话。
+</Aside>
+
+<Aside type="caution" title="macOS 26 起,日历要的权限变了">
+macOS 把日历数据库放在哪——也就连带决定了 OMem 需要哪种权限——这要看你的系统版本:
+
+- **macOS ≤ 12(较旧):** 日历在 `~/Library/Calendars/Calendar Cache`,由**日历隐私权限**把守。macOS 会正常弹窗问你要。
+- **macOS 26(Tahoe)及更新:** 日历挪进了一个沙箱化的群组容器(`~/Library/Group Containers/group.com.apple.calendar/Calendar.sqlitedb`),于是访问它现在改由**完全磁盘访问权限**把守——跟 [邮件](/zh-cn/how-to/02-ingest-mail/) 一模一样。FDA 这东西 macOS 从不主动弹窗,得你亲手把 `omem` 这个二进制加进去。
+
+不管哪种情况,`omem setup --grant-tcc` 都会认出你的版本,带你走对应那条路。要是在 macOS 26 上日历一条都摄不进来,十有八九就是缺 FDA——见 [常见错误](/zh-cn/troubleshooting/02-common-errors/)。
+</Aside>
+
+## 打开它
+
+<Steps>
+
+1. **授予访问权限。** 日历要一个 macOS 权限——向导会替你搞定,也可以直接跑:
+
+   ```bash
+   omem setup --grant-tcc
+   ```
+
+   **具体要哪种权限,看你的 macOS 版本**(见上面那段提示):较旧的 macOS 给的是日历隐私权限(普通弹窗),而 macOS 26+ 要的是**完全磁盘访问权限**——跟邮件一样。
+
+2. **设好时间窗口。** 日历用的是一个**对称**窗口——既往回看一段、也往前看一段(默认:往回 3 个月,往前 3 个月):
+
+   ```bash
+   omem config set kinds.calendar.scope.time_window.since 6m_ago
+   omem config set kinds.calendar.scope.time_window.until 6m_from_now
+   ```
+
+3. **打开这一类,然后摄入:**
+
+   ```bash
+   omem config set kinds.calendar.enabled true
+   omem ingest --kind calendar
+   ```
+
+</Steps>
+
+## 挑要纳入哪几个子日历
+
+要是你订了些吵闹的日历(节假日、生日、某个团队共享日历),那就把摄入范围收窄到你真正在意的那几个。`null`(默认值)代表**全部**子日历:
+
+```bash
+omem config set kinds.calendar.scope.calendars '["Calendar", "Work"]'
+```
+
+## 其余的范围旋钮
+
+| 配置项 | 默认值 | 作用 |
+|---|---|---|
+| `kinds.calendar.scope.include_recurring_instances` | `true` | 把重复事件的每一次发生都展开。 |
+| `kinds.calendar.scope.max_events_per_account` | `5000` | 每个账号的上限。 |
+| `kinds.calendar.scope.include_attachments` | `true` | 摄入会议议程附件(PDF 之类)。 |
+| `kinds.calendar.scope.max_attachment_size_mb` | `50` | 更大的附件跳过(会留一行只含元数据)。 |
+
+## 确认它跑成了
+
+```bash
+omem query "那场异地团建的筹备会" --kind calendar
+omem wiki ls --kind calendar
+```
+
+每一页事件都带着它的时间、地点、组织者、参会人,外加任何附上的议程。
+
+<Aside type="caution" title="日历的删除是不可逆的">
+邮件有废纸篓,删了还能捞回来;日历事件不一样,删了就真没了——OMem 没法像 [复活一份被删文件的页](/zh-cn/concepts/04-ingest-lifecycle/#删除是软的而且能反悔) 那样把它救回来。要是你清日历清得很狠,这点值得记一下。
+</Aside>
+
+## 接下来
+
+- **[摄入 Loop 笔记](/zh-cn/how-to/04-ingest-loop/)**——唯一一个需要浏览器登录的数据源。
+- **[摄入邮件](/zh-cn/how-to/02-ingest-mail/)**——同门的另一个本地数据源。

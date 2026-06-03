@@ -1,0 +1,75 @@
+---
+title: 摄入文件
+description: 把 OMem 指向一个文件夹——OneDrive、iCloud Drive、Downloads、某个项目目录——它就会把里面每一份支持的文档都摄入进来。可以自己配根目录、大小上限和排除规则。
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+**如果你想让 OMem 摄入 Mac 上某个文件夹里的文档**——同步下来的 OneDrive、一个 iCloud Drive 文件夹、某个项目目录,什么都行——那就看这一页。`file` 这一类是最通用的:把它指向一个目录,里面凡是支持的格式,它统统摄入。
+
+## 打开它
+
+最省事的路子是跑 [setup 向导](/zh-cn/getting-started/02-setup-wizard/),它会自动认出 OneDrive / iCloud / Dropbox / Documents,让你挑。想自己手动配也行:
+
+<Steps>
+
+1. **设好要摄入的文件夹**(也就是"根目录"):
+
+   ```bash
+   omem config set kinds.file.source_config.roots '["~/Library/CloudStorage/OneDrive-Personal", "~/Documents/projects"]'
+   ```
+
+2. **打开这一类:**
+
+   ```bash
+   omem config set kinds.file.enabled true
+   ```
+
+3. **摄入:**
+
+   ```bash
+   omem ingest --kind file
+   ```
+
+</Steps>
+
+<Aside type="note" title="OneDrive / iCloud 到底放在哪">
+在新版 macOS 上,这俩并不直接躺在你的主目录里。OneDrive 在 `~/Library/CloudStorage/OneDrive-<Tenant>/` 底下;iCloud Drive 在 `~/Library/Mobile Documents/com~apple~CloudDocs/` 底下。向导会替你找出来——要是你打算手动设根目录,就去这两个地方翻。
+</Aside>
+
+## 哪些东西会被摄入
+
+你根目录里凡是 [支持的格式](/zh-cn/reference/03-file-formats/)——PDF、Word、PowerPoint、Excel、Markdown、纯文本、HTML、图片——全都会进来。两个范围过滤器帮你把场面控制住(两个都能调):
+
+| 配置项 | 默认值 | 作用 |
+|---|---|---|
+| `kinds.file.scope.max_file_size_mb` | `50` | 比这个大的文件跳过。 |
+| `kinds.file.scope.exclude_patterns` | `["~$*", ".DS_Store", "node_modules/**"]` | 命中这些 glob 模式的就跳过。 |
+
+举个例子,要是你还想顺手跳过一个 `tmp` 文件夹:
+
+```bash
+omem config set kinds.file.scope.exclude_patterns '["~$*", ".DS_Store", "node_modules/**", "tmp/**"]'
+```
+
+## 确认它跑成了
+
+```bash
+omem ingest status        # 上一次跑都干了什么
+omem wiki ls --kind file  # 生成了哪些页
+```
+
+要是有东西没摄进来,`omem ingest errors` 会告诉你哪些失败了、为什么。详见 [观察摄入过程](/zh-cn/how-to/11-observe-ingest/)。
+
+<Aside type="tip" title="占位符文件不用操心">
+要是你的 OneDrive 开了"按需下载"(有些文件只是云端占位符,还没真下下来),OMem 读到的时候会顺手把它们落到本地——你不必先把所有东西都下好。
+</Aside>
+
+## 云端的 `.loop` 文件
+
+OMem 走到一个同步下来的 OneDrive 文件夹、撞见一个 `.loop` 文件时,它不会硬去解析那个二进制——而是把它交给 `loop` 这一类,让它去 SharePoint 把内容取回来。详见 [摄入 Loop 笔记](/zh-cn/how-to/04-ingest-loop/)。
+
+## 接下来
+
+- **[摄入邮件](/zh-cn/how-to/02-ingest-mail/)** / **[日历](/zh-cn/how-to/03-ingest-calendar/)**——另外两个本地数据源。
+- **[支持的文件格式](/zh-cn/reference/03-file-formats/)**——每种格式到底能拿出什么。

@@ -1,0 +1,43 @@
+---
+title: The plugin architecture
+description: The extension points OMem is built on — Source, Parser, Index, and the WikiStore — what each one's interface looks like, what ships built-in, and why none of them lock you in.
+---
+
+import PluginGallery from '../../../components/PluginGallery.tsx';
+import { Aside } from '@astrojs/starlight/components';
+
+**Read this if** you want to know how extensible OMem really is — the types of plugin it has, which plugins ship under each, and where the honest boundaries of v1.0 are.
+
+## Plugin-first, by design
+
+OMem was built platform-first: every stage of the [ingest pipeline](/concepts/04-ingest-lifecycle/) plugs into an interface defined from day one, each with at least one real, shipping implementation — no "TBD" stubs. The point isn't that you *must* extend it; it's that the architecture doesn't trap you. You can add a source, swap an index, or (later) replace a parser without rebuilding the rest.
+
+## Four extension points — and the plugins under each
+
+There are four extension-point **types**. **Scroll** to see each one and the concrete plugins OMem ships under it:
+
+<PluginGallery client:load />
+
+Be precise about the count, because it's easy to oversell: **three of these are pluggable today** (Source, Parser, Index), and **one is architecturally defined but reserved** (WikiStore — the interface is clean, but v1.0 ships a single implementation with no swap mechanism). Calling it "four extension points" is true on paper; in practice, three are things you can act on now.
+
+## What this buys you
+
+- **New sources without core changes.** A `file` / `mail` / `calendar` / `loop` source is just an implementation of the Source interface. Adding Slack, Jira, or Linear later is a new Source — the parser, index, and wiki layers don't move.
+- **The retrieval layer is a choice, not a lock-in.** v1.0 ships `fts5` (SQLite FTS5 + jieba Chinese segmentation) as a genuinely good default. Want hybrid vector search? `omem plugin enable qmd` swaps in a BM25 + local-embedding + reranker stack. It *replaces* fts5 rather than merging — a clean boundary — and only the index rebuilds; your wiki is untouched.
+- **The parser chain can evolve.** Today it's deterministic (no LLM). The interface leaves room for a future `parser-llm` to plug in for file kinds — for people who want layout understanding over archival reproducibility — without changing the contract the rest of the pipeline relies on.
+
+<Aside type="note" title="Why the default index is already good">
+Plugins exist to offer *different trade-offs* (speed vs. recall, local vs. cloud), not to upgrade from a deliberately weak baseline. The `brew install omem` default has to be something you can trust every day — see [design principle P6](/concepts/06-design-principles/). `qmd` isn't "the good version"; it's "the different-trade-off version".
+</Aside>
+
+## The CLI is the real extension surface
+
+There's a fifth kind of extensibility that isn't in the diagram, because it lives one level up: **the `omem` CLI is the authoritative interface, and every agent integration is a thin wrapper over it.** The OMem skill is ~30 lines of shell that shell out to `omem query`; the MCP server is a similarly thin wrapper for any MCP client. The agent layer is volatile — last year's hot agent isn't next year's — so OMem's bet is that the memory layer underneath shouldn't be bound to today's agent. [Querying from an agent](/concepts/07-querying-from-an-agent/) covers that side.
+
+## Nothing locks you in
+
+Because the wiki is plain Markdown files on your disk and every format is open, the whole thing is portable on top of being pluggable: back it up, version-control it, hand-edit a page, point it at a different machine. The extension points keep the *software* open; the Markdown-on-disk output keeps your *data* open. Andrej Karpathy has written about LLM-readable wikis as a primitive of the AI-native stack — [design principle P3](/concepts/06-design-principles/) is where that idea becomes concrete.
+
+## What's next
+
+Continue to [design principles](/concepts/06-design-principles/) — the eight ideas that explain *why* the architecture is shaped this way, including why the wiki is the truth and why the parser deliberately isn't an LLM.

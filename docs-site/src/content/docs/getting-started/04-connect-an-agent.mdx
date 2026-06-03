@@ -1,0 +1,98 @@
+---
+title: Let an AI agent use your memory
+description: Connect OMem to Claude Code (a plugin) or any MCP-capable agent (Cursor, Cline, OpenClaw, …) so it automatically queries your work context — no need to remind it your history exists.
+---
+
+import QueryFlow from '../../../components/QueryFlow.tsx';
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+**Read this if** you use an AI agent and want it to *automatically* reach into your work context — without you pasting in emails or saying "go check OMem." This is the payoff: the agent answers from your real history on its own.
+
+## What it looks like
+
+Once connected, the agent recognizes a work-flavored question, queries OMem, reads just what it needs, and answers — citing your actual emails, docs, and notes. **Step through a real exchange:**
+
+<QueryFlow client:load />
+
+The key: you don't tell it to use OMem. It notices the question touches your work and reaches for it.
+
+## Three ways to connect
+
+Pick the one that matches your agent.
+
+<Tabs>
+  <TabItem label="Skill (recommended)">
+
+  The richest integration, for agents with a skill / plugin mechanism — **Claude Code, Codex, Claw Hub**. The skill carries trigger semantics and the drill-down flow, not just raw tools. First make sure the `omem` CLI is installed and set up ([install](/getting-started/01-install/) → [setup](/getting-started/02-setup-wizard/)).
+
+  In **Claude Code**:
+
+  ```
+  /plugin marketplace add seacen/omem
+  /plugin install omem@seacen-marketplace
+  ```
+
+  In **Codex** and **Claw Hub**, install OMem's plugin from their respective plugin systems — the same skill, a different front door. ([Full per-agent steps](/how-to/07-agent-integrations/).)
+
+  To verify, ask the agent *"check my OMem health"* — it should run `omem doctor`.
+
+  </TabItem>
+  <TabItem label="MCP (fallback)">
+
+  For agents **without** a native skill mechanism (Cursor, Cline, Continue, Zed), OMem's CLI runs a stdio **MCP server** (`omem mcp`) exposing the same six tools. One config entry connects it:
+
+  **Cursor** — `.cursor/mcp.json` (or Settings → MCP Servers):
+  ```json
+  {
+    "mcpServers": {
+      "omem": { "command": "omem", "args": ["mcp"] }
+    }
+  }
+  ```
+
+  **Cline, Continue, Zed** — same shape: `command: "omem"`, `args: ["mcp"]`, in that agent's MCP config. (If your agent *does* support a skill, prefer that — you get the trigger + drill guidance the raw MCP entry doesn't carry.)
+
+  </TabItem>
+  <TabItem label="Plain CLI">
+
+  No integration needed at all. Any agent that can run a shell command can use OMem — it's just a CLI:
+
+  ```bash
+  omem query "what did Alice say about Q3 scope" --format json
+  ```
+
+  The skill and MCP server are thin wrappers over exactly this. If your agent can `bash`, it can already query OMem.
+
+  </TabItem>
+</Tabs>
+
+## What the agent can — and can't — do
+
+Both the skill and the MCP server expose the **same six read-only tools**:
+
+| Tool | What it does |
+|---|---|
+| `query` | Ranked search across all your indexed work |
+| `page_get` | Full wiki page (frontmatter + body) |
+| `raw_get_path` | Path to the original source file (file kind) |
+| `raw_get_parsed_path` | Path to the parsed source (with version history) |
+| `wiki_ls` | Browse pages by kind / source / account / date |
+| `doctor` | OMem health check |
+
+<Aside type="note" title="The agent can never change your data">
+Setup, ingest, re-indexing, purging — none of these are exposed to the agent. Those stay deliberate, human actions you run in the terminal. The agent only ever *reads*, so handing it OMem access can't reconfigure or delete anything. See [querying from an agent](/concepts/07-querying-from-an-agent/) for how a well-behaved agent uses these tools.
+</Aside>
+
+<details>
+<summary>The CLI is the real interface — everything else is a thin wrapper</summary>
+
+The skill (the plugin you install in Claude Code) is a small wrapper that shells out to `omem query`. The MCP server is a thin process that does the same. Neither re-implements anything — a human in the terminal and an agent through the plugin run the *identical* command and get identical behavior. That's deliberate: the agent layer changes year to year, so OMem keeps the memory underneath bound to a stable CLI, not to any one agent. Switch agents whenever; your memory persists. ([Design principle P5](/concepts/06-design-principles/).)
+
+</details>
+
+## What's next
+
+You've gone from nothing to an agent that remembers your work. From here:
+
+- **[How-to guides](/how-to/01-ingest-files/)** — ingest more sources, tune search, schedule it, back it up.
+- **[Concepts](/concepts/01-what-is-omem/)** — why OMem is shaped the way it is.

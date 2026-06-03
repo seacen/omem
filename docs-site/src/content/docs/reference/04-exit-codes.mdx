@@ -1,0 +1,65 @@
+---
+title: Exit codes
+description: What each omem exit code (0–6) means, which commands return it, and how to branch on it in a shell script. Plus the separate plist-state codes that omem install status returns.
+---
+
+import ExitCodeTable from '../../../components/ExitCodeTable.tsx';
+import { Aside } from '@astrojs/starlight/components';
+
+**Read this if** you're scripting around `omem` — a cron wrapper, a CI step, a `&&` chain — and need to branch on whether a command succeeded, found nothing, or failed for a specific reason. Every `omem` command exits with one of seven codes, and they mean the same thing everywhere.
+
+## The seven codes
+
+`omem` uses a small, fixed contract: **0 is success, 1 is a generic failure, and 2–6 are specific conditions** worth handling on their own. **Click a code** to see which commands return it and exactly what triggers it:
+
+<ExitCodeTable client:load />
+
+The one that trips people up is **`0` on an empty result**. `omem query "something nobody wrote about"` finds nothing and exits `0` — because "no hits" is a valid answer, not an error. If you need to detect emptiness, check the output (`--format json` gives you a count), not the exit code.
+
+## Branching on a code in a script
+
+The codes are stable, so you can write against them directly:
+
+```bash
+omem query "Q3 budget" --format json > hits.json
+case $? in
+  0) echo "query ran (may be empty — check hits.json)" ;;
+  2) echo "index not ready — run: omem index rebuild" ;;
+  6) echo "bad argument — check --since / --format" ;;
+  *) echo "query failed" ;;
+esac
+```
+
+For a page lookup, the specific codes let you tell *missing* from *ambiguous* from *malformed*:
+
+```bash
+omem page get a3f9c2bd
+case $? in
+  0) : ;;                # printed the page
+  3) echo "prefix matched several pages — add more characters" ;;
+  4) echo "no such page" ;;
+  6) echo "prefix too short (need ≥8 chars)" ;;
+esac
+```
+
+<Aside type="tip" title="The full contract lives in one file">
+These seven codes are defined in one place in the source and enforced by the test suite, so they don't drift between releases. If you're automating against `omem`, you can rely on them across upgrades.
+</Aside>
+
+## `omem install status` is the exception
+
+One command does **not** use this contract: `omem install status` reports the **state of the scheduled-ingest launchd job**, and its 0–3 codes mean something different.
+
+| Code | `omem install status` means |
+|---|---|
+| `0` | Installed, loaded, last run exited 0, recent ingest events present — healthy. |
+| `1` | The launchd plist is **not installed**. |
+| `2` | Installed but **not loaded** by launchctl. |
+| `3` | Installed and loaded, but the last run failed **or** no ingest event in 24h. |
+
+So `omem install status; echo $?` is a one-line health probe you can poll from a monitoring script — just remember its codes describe *the schedule*, not the generic success/failure contract above.
+
+## What's next
+
+- **[CLI commands](/reference/01-cli-commands/)** — the full command reference, including which flags each command takes.
+- **[Configuration schema](/reference/02-config-schema/)** — every `config.yaml` field, its default, and which ones are dangerous to change.

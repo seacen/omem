@@ -1,0 +1,120 @@
+---
+title: 跑 setup 向导
+description: 跑一次 omem setup,选好 wiki 放哪、挑一个 LLM provider、打开要摄入的工作类别、再授予 macOS 权限。大约五分钟,一步步带你走。
+---
+
+import CommandExplorer from '../../../../components/CommandExplorer.tsx';
+import { Aside, Tabs, TabItem, Steps } from '@astrojs/starlight/components';
+
+已经 [装好了 OMem](/zh-cn/getting-started/01-install/)、想把它接到你的数据上?看这一页。`omem setup` 是个一次性的向导——跑一遍、回答几个问题,OMem 就配置好了。这一页会把每一步都讲到,省得你中途冒出意外,尤其是 macOS 权限那一段。
+
+## 启动向导
+
+```bash
+omem setup
+```
+
+它会一步步引导你走完——几乎每个问题,你直接回车用默认值就行。在你跑完之前,后台不会摄入任何东西;向导做的,只是把你的配置写下来。
+
+<Aside type="tip" title="或者让你的 agent 陪你一起跑">
+你也可以跟你的 AI agent 说"带我跑一遍 `omem setup`",然后用大白话回答它的问题——它会边走边给你讲每一步。不管哪种方式,向导本身都是同一个。
+</Aside>
+
+## 向导会问些什么
+
+整个流程就是一小串步骤。下面逐一说说每一步替你定了什么——默认值用**粗体**标出。
+
+<Steps>
+
+1. **wiki 放在哪。** OMem 把你的记忆写成一个装满 Markdown 文件的文件夹。可以选**默认路径(`~/omem/wiki`)**、一个现成的 Obsidian vault,或者你自己指定的路径。(以后想挪地方,用 `omem wiki move`。)输出语言也在这一步选:**auto**(每页跟着它源文档的语言走),或者强制走 `zh` / `en`。
+
+2. **定时摄入。** 选一个间隔(比如每 15 分钟),或者干脆跳过。**这里要留神:**这一步只是*把间隔记进配置*,它**并不会**真把定时装上。向导写的是配置;真正去注册那个定时器,得靠之后你另跑的一条 `omem install`(见下面的提示框)。详见 [定时](/zh-cn/how-to/08-launchd-schedule/)。
+
+3. **搜索索引。** **内置的 `fts5`**(关键词搜索、快、零配置)拿来就能用,不过我们更**建议你把 `qmd` 插件打开**——它多了语义搜索和跨语言搜索,在真实工作上好用得多。`qmd` 要装一个单独的二进制(基于 Node),而且会在你**第一次**跑 `omem ingest` 或 `omem query` 时,顺手把 **~2.2 GB** 的本地模型拉下来——这是一次性的开销,会让头一次跑慢一些。条件允许就上 qmd;`fts5` 则是那个稳稳兜底的选择。详见 [检索](/zh-cn/concepts/08-retrieval/)。
+
+4. **LLM + 视觉 provider。** 用哪个模型来整理页面、描述图片。见下面 [怎么选 LLM provider](#怎么选-llm-provider)。
+
+5. **每一类工作**——文件、邮件、日历、Loop 笔记。每一类**默认都是关着的**;你把想要的逐个打开,OMem 会帮你把每一类配好(哪几个文件夹、哪几个邮件账号、哪几个日历)。macOS 要权限,也是在这一步问你——见 [授予访问权限](#授予-macos-访问权限)。
+
+6. **浏览器会话**(只有开了 Loop 才会有)——一次性登录,好让 OMem 能去取你的 Teams Loop 页面。
+
+</Steps>
+
+全部走完,OMem 就把你的配置写下来(原子写入,顺带给旧配置留个备份)。这会儿还什么都没摄入呢——那是 [下一页](/zh-cn/getting-started/03-first-query/) 的事。
+
+<Aside type="caution" title="你必须跑 `omem install`——setup 不会替你定任何计划">
+这是最容易被漏掉的一步。**`omem setup` 只管写配置,从不替你安装定时**——哪怕你在第 2 步选了间隔,也照样不装。所以 setup 之后,不管你当时选的是什么,OMem 都*不会*自己跑起来,除非你亲手把定时器注册上:
+
+```bash
+omem install
+```
+
+就一句话——`omem install` 会去读你之前在配置里设好的那个间隔,不用你再填一遍。setup 末尾的小结也会提醒你,它会打印这么一行:`Scheduled ingest: every 15 min (cfg only — NOT YET INSTALLED)`。在你跑 `omem install` 之前,OMem 只在你亲手敲 `omem ingest` 时才摄入,你的 wiki 自然就一天天旧下去。详见 [定时](/zh-cn/how-to/08-launchd-schedule/)。
+</Aside>
+
+<Aside type="note" title="可选:用 LibreOffice 处理矢量图">
+Office 文档里常嵌着 **EMF/WMF** 矢量图(粘进去的图表、SmartArt 之类)。OMem 会把它们转成 PNG,好让视觉模型描述出来——可这步转换得靠 LibreOffice。要是没装,这些图就会被跳过(其余照常摄入)。想用的话:
+
+```bash
+brew install --cask libreoffice
+```
+
+向导没检测到 LibreOffice 时会提你一句;装不装,全凭你自愿。
+</Aside>
+
+## 怎么选 LLM provider
+
+OMem 自己不带模型——是你把它指向某一个。整理器(文本 → wiki 页)和视觉模型(图片 → 描述)甚至可以分别用不同的 provider。四个选择:
+
+<Tabs>
+  <TabItem label="Claude 订阅">
+  **`anthropic-oauth`**——用你的 Claude Pro / Max 订阅。不用粘 API key;登录由向导搞定。如果你本来就在为 Claude 付费,这是最省事的一条路。这也是默认值。
+  </TabItem>
+  <TabItem label="Anthropic API">
+  **`anthropic-api`**——Anthropic 的 API,按 token 计费。你提供一个 API key(存在环境变量或 macOS Keychain 里,绝不写进配置文件)。
+  </TabItem>
+  <TabItem label="OpenAI 兼容">
+  **`openai-compat`**——任何说 OpenAI API 那套话的端点:OpenAI 自己、一个托管网关,或者**你自己机器上的一个本地模型**(把 `base_url` 指向你的本地服务器)。这是给"我想跑自己的模型"留的口子。
+  </TabItem>
+  <TabItem label="ChatGPT 订阅">
+  **`openai-chatgpt-oauth`**——用你的 ChatGPT Plus / Pro 订阅。跟 Claude 那个选项一样,登录由向导搞定。
+  </TabItem>
+</Tabs>
+
+这些以后都能用 `omem config set` 改——见 [LLM provider 怎么配](/zh-cn/how-to/05-llm-provider/)。
+
+## 授予 macOS 访问权限
+
+这一步值得花点心思弄懂,因为 macOS 的权限有个绕人的地方,不少人都在这儿栽过。
+
+要读你的**邮件**——以及在 **macOS 26+** 上读你的**日历**——OMem 需要**完全磁盘访问权限(Full Disk Access,FDA)**。这个 FDA,macOS **从不**自动弹窗问你要,得你手动给。你开这几类时,向导会把你领到地方;你也可以随时自己触发:
+
+```bash
+omem setup --grant-tcc
+```
+
+它会打开 **系统设置 → 隐私与安全性 → 完全磁盘访问权限**,并在 Finder 里把 `omem` 这个二进制亮出来,方便你把它拖进去(或者直接打开它的开关)。
+
+每一类各需要什么:
+
+- **邮件**——完全磁盘访问权限(就是上面那个手动给的),所有 macOS 版本都要。
+- **日历**——旧版 macOS 上是一个普通的**日历**弹窗;到了 **macOS 26+ 就要完全磁盘访问权限**了(日历数据库挪进了沙箱容器,如今跟邮件一样被卡着)。版本细节见 [摄入日历](/zh-cn/how-to/03-ingest-calendar/)。
+- **文件 / Loop**——正常弹窗(或者压根不用什么特殊权限)。
+
+<Aside type="caution" title="为什么邮件/日历在终端里'能用'、定时跑却失败">
+你在终端里自己跑 `omem` 时,它有时能读到邮件/日历,那是因为它借用了终端自己的权限。可那个**定时**任务(launchd)是直接以 `omem` 的身份跑的——没有终端可借——所以一旦 `omem` 自己没进完全磁盘访问权限,那些需要 FDA 的类别,定时摄入时就会悄没声地失败。**办法永远是同一个:把 `omem` 这个二进制加进完全磁盘访问权限**,而不是去加终端。
+</Aside>
+
+<details>
+<summary>只重跑某一步</summary>
+
+只想改一样东西,不必把整个向导重走一遍。`omem setup --kind mail` 只重跑邮件那一步;`omem setup --llm` 直接跳到 provider 那一步;`omem setup --browser` 重做 Loop 的登录。新加了邮件账号、或者刚换了 LLM provider,用这几个就很顺手。
+
+</details>
+
+## 接下来
+
+配好了——这就看它干活去。
+
+- **[跑你的第一次查询](/zh-cn/getting-started/03-first-query/)**——摄入一点数据,拿到第一个命中。
+- 想要逐字段的完整参考?**[配置 schema](/zh-cn/reference/02-config-schema/)**。

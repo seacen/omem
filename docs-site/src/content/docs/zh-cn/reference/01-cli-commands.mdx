@@ -1,0 +1,317 @@
+---
+title: CLI 命令
+description: omem 的完整命令参考——每个命令、每个 flag 是什么意思、什么时候用，并清楚标出少数几个会花钱或不可逆地改动状态的命令。CLI 就是这个产品的接口。
+---
+
+import CommandExplorer from '../../../../components/CommandExplorer.tsx';
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+**如果你想搞清楚** `omem` 在终端里到底能干什么——每个命令、每个 flag 究竟是什么意思、哪些得小心着跑——那就看这一页。CLI *就是*这个产品的接口（每一种 agent 集成都只是它薄薄的一层封装），所以这一页是其余一切赖以成立的契约。
+
+`omem --help` 会实时打印整棵命令树，`omem <command> --help` 则打印某个命令的全部 flag。这一页解释它们——讲清每个 flag 是*干什么用的*，不只是它叫什么名字。
+
+<Aside type="note" title="内部命令不在这里列出">
+带下划线前缀的命令（`_debug`、`_eval` 等）只供开发用，已从发布的二进制里剥掉。它们不属于公开契约，也不在文档里。
+</Aside>
+
+## 查询与检索
+
+agent 用得最多的命令——你自己上手时也最常用。它们沿着[渐进式披露的几层](/zh-cn/concepts/02-progressive-disclosure/) L0 → L3 一路往下走。
+
+<CommandExplorer client:load lang="zh" sessions={[
+  {
+    label: 'query',
+    command: 'omem query "Project Atlas Q3 scope decision" --limit 3',
+    output: [
+      '  [    0.910] mail     a3f9c2bd  Re: Atlas Q3 — scope sign-off',
+      '      Alice confirmed the 12% margin target; scope item 3 deferred to Q4.',
+      '  [    0.740] file     7c1e0a55  Atlas-Q3-review.pptx',
+      '      Quarterly review deck: margin scenarios A/B/C, owner Alice.',
+      '  [    0.680] calendar d9b4f201  Atlas Q3 review (Tue 10:00)',
+      '      Attendees: Alice, Bob, Carol. Agenda PDF attached.',
+    ],
+  },
+  {
+    label: 'page get',
+    command: 'omem page get a3f9c2bd',
+    output: [
+      '---',
+      'title: Re: Atlas Q3 — scope sign-off',
+      'kind: mail',
+      '---',
+      '',
+      '# Re: Atlas Q3 — scope sign-off',
+      '',
+      'Alice signed off the revised 12% margin target (up from 9%).',
+      'Bob agreed. Scope item 3 carried to Q4 at Carol’s request.',
+    ],
+  },
+  {
+    label: 'raw get',
+    command: 'omem raw get 7c1e0a55',
+    output: [
+      '/Users/alice/OneDrive/Acme/Atlas-Q3-review.pptx',
+    ],
+  },
+]} />
+
+### `omem query "<question>"`
+
+在当前生效的索引里搜索，按相关度排序打印命中。问题是一段自然语言字符串——[agent 自己会对结果重排](/zh-cn/concepts/07-querying-from-an-agent/)，所以撒一张大网、把摘要读一遍，比死盯着最高分更靠谱。
+
+| Flag | 说明 |
+|---|---|
+| `-n`, `--limit <N>` | 返回多少条命中。默认 `10`。想要一个宽裕的候选池来重排时，调到 `20`–`50`。 |
+| `--format text\|json` | 输出形态。`json`（默认是 `text`）给你一个带计数的机读数组——在脚本里就用它。 |
+| `--since <when>` | 只保留在此时间点（含）之后修改过的命中。语法见下面[`--since` 时间过滤](#--since-时间过滤)。 |
+| `--kind file\|mail\|calendar\|loop` | 限定在某一类工作里。 |
+| `--source <name>` | 限定在某一个 source 后端里（例如 `local-files`、`mail-app`）。 |
+| `--account <name>` | 限定在某一个邮件/日历账号里。（文件行没有账号，所以加任何 `--account` 都会把它们排除掉。） |
+| `--include-deleted` | 把已打墓碑（tombstone）的页面也返回——用于审计或恢复。默认关闭。 |
+
+#### `--since` 时间过滤
+
+`--since` 过滤的是**源头的**修改时间——文件的 mtime、邮件的 Date、日历事件的时间戳——*而不是* OMem 恰好在什么时候摄入了它。它接受：
+
+- **相对锚点：** `7d_ago`、`3w_ago`、`3m_ago`、`1y_ago`（天 / 周 / 月 / 年）。
+- **ISO 日期 / 日期时间：** `2026-01-01` 或 `2026-01-01T09:00:00`。
+
+所以 `omem query "budget" --since 2w_ago` 找的是那些底层文件或消息在过去两周内变动过的预算相关页面。
+
+### `omem page get <id>`
+
+打印整理好的 wiki 页（L1）——那份给人看的摘要。它接受完整的 32 字符 page-id，或任意**≥8 字符的前缀**；加 `--format json` 则结构化返回。
+
+### `omem raw get <id>`
+
+溯源命令。默认它打印的是**原始文件**（L3）的路径，好让 agent 直接打开它。两个 flag 能够到更深的层：
+
+| Flag | 说明 |
+|---|---|
+| `--parsed` | 打印解析后的 Markdown（L2）的路径——完整的 parser 输出，每一行表格、内联的图片描述都在里头。 |
+| `--version N\|list` | 配合 `--parsed`：`list` 列出所有保留的解析版本；`N` 选定某个历史版本（`0` = 最新）。 |
+
+<Aside type="tip" title="page-id 前缀">
+page-id 是一串 32 字符的十六进制。你很少需要把它整串敲完——任意**8 字符或更长**的前缀都行。前缀有歧义（退出码 3）或一个都匹配不上（退出码 4）时，OMem 会告诉你；见[退出码](/zh-cn/reference/04-exit-codes/)。
+</Aside>
+
+## 摄入（ingest）
+
+`omem ingest` 不带子命令时，会跑完整条[流水线](/zh-cn/concepts/04-ingest-lifecycle/)：发现 → 解析 → 描述图片 → 整理 → 写 wiki → 建索引。通常你根本不会手动跑它——[定时任务](/zh-cn/reference/02-config-schema/#schedule)会去跑。下面这些 flag 是给偶尔手动跑一次用的；子命令则是用来观察和控制某一次运行的。
+
+### 手动运行时的 flag
+
+| Flag | 说明 |
+|---|---|
+| `--kind <k>` / `--source <s>` | 把这次运行限定在某一类，或为它临时换一个 source 后端。 |
+| `--dry-run` | 只做发现和分类——不调 LLM、不写文件。用它来预览*将会*摄入什么。 |
+| `-q`, `--quiet` | 不打印逐条进度（最后那份按 kind 汇总仍会打印）。 |
+| `--verbose-phases` | 反过来：逐条打印每个阶段（raw → parse → vlm → curate → wiki → index），方便调试时间都花在哪。和 `--quiet` 互斥。 |
+| `--vlm-mode auto\|always\|never` | 仅这次运行覆盖图片描述行为——见[下面](#--vlm-mode)。 |
+| `-c`, `--concurrency <N>` | 仅这次运行覆盖 worker 池大小——见[下面](#-c---concurrency)。 |
+
+#### `--vlm-mode`
+
+*只对本次运行*临时覆盖文档里嵌的图片怎么处理（持久化的设置是 [`parser.images.*`](/zh-cn/reference/02-config-schema/)）：
+
+| 值 | 效果 |
+|---|---|
+| `auto` *（默认）* | 描述 parser 判定值得描述的那些图片——正常行为。 |
+| `always` | 即使配置在某格式上本会跳过，也照样描述每一张被标记的图片。（但 parser 没标记的，它还是不会凭空造活儿。） |
+| `never` | 完全跳过视觉模型——最快，没有图片描述，也没有 VLM 开销。 |
+
+当你只想快速过一遍纯文本、又不在意这次有没有图片描述时，就用 `--vlm-mode never`。
+
+#### `-c`, `--concurrency`
+
+一把覆盖**两个** ingest worker 池（[`ingest.curate_concurrency`](/zh-cn/reference/02-config-schema/) 和 `ingest.kind_concurrency`）。最有用的值是 `1`——严格串行摄入，能让日志好读，也排除掉调试时的竞态。更高的值（最高 32）会拉大这两个池，但全局的 LLM/VLM 上限仍然约束着实际发出的 provider 调用数。
+
+### `omem ingest --now` ⚠
+
+:::danger[`omem ingest --now` 很费钱]
+`--now` 会忘掉增量游标，**重新扫描一切**。如果什么都没变，它仍然便宜——内容寻址和整理缓存会把它吸收掉。但任何元数据有变动的条目都会重新算哈希、错过缓存、再次调 LLM；在一个大的语料库上，这可能意味着**几百到几千次 LLM 调用、真金白银的开销**。你几乎从不需要它——正常的增量循环本就会捕捉到变动。见[为什么 `--now` 很费钱](/zh-cn/concepts/04-ingest-lifecycle/)。
+:::
+
+### 观察和控制一次运行
+
+| 命令 | 作用 |
+|---|---|
+| `omem ingest status [--format]` | 一眼看清正在跑的和最近跑过的运行。 |
+| `omem ingest watch` | 实时跟看当前运行的逐阶段事件。 |
+| `omem ingest history` | 列出过往的运行及其结果。 |
+| `omem ingest errors` | 显示失败的条目，带错误消息。 |
+| `omem ingest item <uri>` | 追溯单个条目跨多次运行的完整历史。**只读——绝不会触发摄入。** |
+| `omem ingest cancel [run_id]` | 停掉一次正在跑的摄入。Flag：`--all`（所有活跃运行）、`--force`（跳过 SIGTERM 宽限期）、`--yes`（跳过确认）、`--timeout-sec`（宽限期）。 |
+
+<Aside type="note" title="往里钻从不让你花钱">
+`omem ingest item <uri>` 是一次*查询*，不是一次摄入——它读取单个条目的事件历史并打印出来。查"这个文件到底怎么了"从不触发 LLM 调用。
+</Aside>
+
+## 浏览 wiki
+
+浏览是元数据层面的：按 frontmatter 列出、过滤页面，不打分。要模糊或语义搜索，请改用 `omem query`。
+
+### `omem wiki ls`
+
+列出页面，过滤条件可叠加（AND）：
+
+| Flag | 说明 |
+|---|---|
+| `--kind` / `--source` / `--account` | 和 `omem query` 一样的过滤器。 |
+| `--since <when>` | 和 [`query --since`](#--since-时间过滤) 一样的时间语法。 |
+| `--search <text>` | 对标题**或**摘要做大小写不敏感的子串匹配。不分词、不打分——要排序搜索请用 `omem query`。 |
+| `-n`, `--limit <N>` | 最多多少行；`0` 表示不限。默认 `50`。 |
+| `--format text\|json` | 输出形态。 |
+| `--include-deleted` | 把已打墓碑的行也包含进来。 |
+
+### `omem wiki move <new_path>` ⚠
+
+把整个 wiki 库挪到新位置，并把索引重新指过去（如果启用了 qmd，也包括它的 collection）。`--dry-run` 会先把计划打印出来。
+
+:::danger[`omem wiki move --force` 会覆盖]
+不加 `--force` 时，`wiki move` 会拒绝一个非空的目标位置。加上它，wiki 库就会被并进那里已有的内容里。永远先跑 `--dry-run`。搬动 wiki 库靠的是这条命令——而不是手改 `data.wiki_path`。
+:::
+
+## 安装与诊断
+
+| 命令 | 作用 |
+|---|---|
+| `omem version` | 打印版本号。 |
+| `omem setup` | onboarding 向导。见下面[它的 flag](#omem-setup-的-flag)。 |
+| `omem doctor [--format]` | 跑全部健康检查（配置、LLM 端点、索引、wiki↔db 一致性、定时、磁盘等）。每一项不通过的检查都会打印一句 `Fix:` 提示。 |
+| `omem source status [--kind] [--format]` | 每个 source 的健康状况和游标位置。 |
+| `omem source info <kind>/<source>` | 单个 source 的详情（例如 `mail/mail-app`）。 |
+| `omem install` | 安装/移除定时摄入任务。见下面[它的 flag](#omem-install-的-flag)。 |
+| `omem install status [--json]` | 报告定时任务的健康状况。**它用的是自己一套 0–3 状态码**——见[退出码](/zh-cn/reference/04-exit-codes/)。 |
+
+<CommandExplorer client:load lang="zh" sessions={[{
+  command: 'omem doctor',
+  output: [
+    '',
+    'OMem Doctor',
+    '─────────────────────────────────────────',
+    '[Global]',
+    '  ✓ config_schema_valid          ok',
+    '  ✓ llm_endpoint                 reachable (anthropic-oauth)',
+    '  ✓ index_plugin                 fts5 · 1284 pages',
+    '  ✓ wiki_vs_sql_consistency      ok',
+    '  ✓ launch_agent                 loaded (every 15m)',
+    '  ⚠ disk_space                   6.1 GB free',
+    '      → free space, or move data.root to a larger volume',
+    '',
+    '[Kind: file]',
+    '  ✓ roots_reachable              2 roots ok',
+    '',
+    '[Kind: mail]',
+    '  ✓ full_disk_access             granted',
+    '',
+    '1 warning, 0 errors.',
+  ],
+}]} />
+
+### `omem setup` 的 flag
+
+| Flag | 说明 |
+|---|---|
+| `--kind <k>` | 只重跑某一类的安装步骤，而不是整个向导。 |
+| `--llm` | 直接跳到 LLM provider 那一步。 |
+| `--browser` | 打开 Loop 的交互式登录窗口（会保存浏览器会话）。 |
+| `--grant-tcc` | 探测每个已启用类别的 macOS 权限、触发系统弹窗——并且，对于邮件的完全磁盘访问权限（它从不自动弹窗），会打开系统设置让你手动加。撤销过访问权限、或者 `brew upgrade` 换过二进制之后跑它。 |
+| `--check` | 不重新登录就验证一个已有的浏览器会话（配合 `--browser`）。 |
+| `--force` | 即使会话看上去还有效，也强制重新登录。 |
+
+### `omem install` 的 flag
+
+| Flag | 说明 |
+|---|---|
+| `--schedule <interval>` | *可选*地覆盖运行间隔（例如 `3m`、`15m`、`1h`）。不写它，`omem install` 就用你配置里的 `schedule.interval_minutes`——向导设过的，你不必再重复一遍。 |
+| `--watch-roots` | 当你根目录里的文件有变动时也触发摄入（默认关闭——这条流水线是 5–10 分钟的批处理，不是实时同步；推荐的范式是定时 cron）。 |
+| `--uninstall` | 移除定时任务并卸载它。 |
+| `--skip-preflight` | 在写入任务前跳过逐类别的 preflight 检查（很少用；只在运行时环境和你的 shell 不一样时才用）。 |
+
+:::danger[权限 & 登录类 flag 会改动系统状态]
+`omem setup --grant-tcc` 会触发 macOS 权限弹窗；`--browser` 会打开登录窗口；`omem install --uninstall` 会移除定时任务。它们都不毁你的数据，但会改动系统状态——要有意识地跑。
+:::
+
+## Agent 集成
+
+### `omem mcp`
+
+启动一个 stdio MCP server，向任何 MCP 客户端——Cursor、Cline、OpenClaw 等等——暴露六个**只读**工具（`query`、`page_get`、`raw_get_path`、`raw_get_parsed_path`、`wiki_ls`、`doctor`）。每个工具都转去调上面那同一套 CLI，所以 agent 和人看到的行为完全一致，而那些破坏性的动词被刻意地从不暴露出来。见[从 agent 查询](/zh-cn/concepts/07-querying-from-an-agent/)。
+
+## 插件与索引
+
+### 配置命令
+
+| 命令 | 作用 |
+|---|---|
+| `omem config get <key>` | 按点分路径读取一个值。 |
+| `omem config show [--raw\|--json]` | 打印生效的配置（`--raw` = 一字不差的原文件）。 |
+| `omem config set <key> <value>` | 写入一个值（列表/数字用 JSON）。 |
+| `omem config migrate [--dry-run]` | 把旧配置迁移到当前 schema；`--dry-run` 预览。 |
+
+### 索引与插件命令
+
+| 命令 | 作用 |
+|---|---|
+| `omem plugin list [--format]` | 列出索引插件及其状态。 |
+| `omem plugin install <name>` | 安装一个插件（目前只有 `qmd`；会跑 `npm install -g @tobilu/qmd`）。 |
+| `omem plugin enable <name>` ⚠ | 把某个插件设为当前生效的索引后端。 |
+| `omem plugin disable <name>` | 禁用一个非当前生效的插件（数据保留）。 |
+| `omem index status [--format]` | 显示当前索引的统计（页数、大小、后端版本）。 |
+| `omem index rebuild [name]` ⚠ | 从 wiki 把某个索引清空重建。 |
+
+:::danger[切换索引后端会重建一切]
+`omem plugin enable qmd` 会翻转 `active_index`——改变此后每一次查询所针对的对象——而新后端在你跑 `omem index rebuild` 之前都是空的。一次 `qmd` 重建会在本地把每一页重新做 embedding，在大库上可能耗时很久。你的 wiki 和 `raw/` 都原封不动，所以你随时能切回来，但请把"启用 + 重建"当成一次有意识的、一次性的动作来对待。四种查询模式在[配置 → query_mode](/zh-cn/reference/02-config-schema/)里有解释。
+:::
+
+## 维护
+
+### `omem lint`
+
+扫描问题；**默认只读**。每个 flag 打开一项检查：
+
+| Flag | 检查 / 做什么 |
+|---|---|
+| `--orphans` | 已打墓碑（源被删）却还留在磁盘上的页面。 |
+| `--stale` | `updated_at` 早于 `--older-than` 阈值的页面。 |
+| `--old-parsed-versions [N]` | 保留了超过 N 个解析版本的页面（不带值时默认为 3）。 |
+| `--broken-links` | 指向缺失文件的 wiki 链接。 |
+| `--relink` | 把旧式的 wiki-root 链接改写成 CommonMark 相对链接（这是修复，不是扫描）。 |
+| `--all` | 跑完每一项只读扫描，出一份报告。 |
+| `--purge` ⚠ | 真把 `--orphans` / `--old-parsed-versions` 找出来的东西删掉。 |
+| `--yes` | 跳过 `--purge` 的确认提示。 |
+
+修饰符：`--older-than <days>`（`--stale` 的阈值，默认 180）· `--since <when>`（只处理早于此时间的孤儿，例如 `30d_ago`）· `--kind file\|mail\|calendar\|loop`（收窄到某一类）· `--dry-run`（配合 `--relink`，只报告变更不写入）· `--format text\|json`。
+
+:::danger[`omem lint --purge` 会删文件]
+单独跑时，`omem lint` 只*报告*。加上 `--purge`（配合 `--orphans` 或 `--old-parsed-versions`）会**物理删除** wiki 页面、并裁剪解析历史——除非你加 `--yes`，否则会有一道确认提示。清理孤儿是已打墓碑的页面最终离开磁盘的方式；它不可逆，所以始终得由你明确发话。见[删除是软的、可逆的](/zh-cn/concepts/04-ingest-lifecycle/)。
+:::
+
+### `omem log`
+
+| 命令 | 作用 |
+|---|---|
+| `omem log tail` | 跟看日志。Flag：`-n/--lines`、`-f/--follow`、`--level <LEVEL>`、`--grep <regex>`。 |
+| `omem log errors [--since] [--limit]` | 最近的 error 级别行（默认最近 24 小时）。 |
+| `omem log show` | 打印日志文件路径和基本信息。 |
+
+## 需要有意识地跑的命令
+
+`omem` 绝大部分随时跑都安全——所有读取、状态、查询。只有一小撮会改动状态、花钱、或无法撤销（上面都标了 ⚠）：
+
+| 命令 | 为什么要慎重 |
+|---|---|
+| `omem ingest --now` | 在大语料库上可能触发大量 LLM 调用（真金白银）。 |
+| `omem index rebuild` | 清空并重建索引；一次 `qmd` 重建可能跑很久。 |
+| `omem plugin enable` / `disable` | 为此后所有查询切换当前生效的搜索后端。 |
+| `omem lint --purge` | 物理删除 wiki 页面 / 裁剪版本历史（不可逆）。 |
+| `omem wiki move --force` | 把 wiki 库并进一个非空的目标位置。 |
+| `omem install --uninstall` | 移除定时摄入任务。 |
+| `omem setup --grant-tcc` / `--browser` | 触发 macOS 权限弹窗 / 一次交互式登录。 |
+
+## 接下来
+
+- **[配置 schema](/zh-cn/reference/02-config-schema/)**——这些命令读取的每一个 `config.yaml` 字段，附带决策点的讲解。
+- **[退出码](/zh-cn/reference/04-exit-codes/)**——每个命令返回什么，以及怎么据此分支。
+- **[文件格式](/zh-cn/reference/03-file-formats/)**——`omem ingest` 实际能解析什么。

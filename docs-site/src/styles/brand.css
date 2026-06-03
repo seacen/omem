@@ -1,0 +1,297 @@
+/*
+ * OMem docs — brand theme override for Starlight.
+ * Maps docs/brand/BRAND.md §7.1 palette + §7.2 typography onto Starlight's
+ * CSS custom properties. Aesthetic: ink-on-paper / editorial / archival —
+ * NOT SaaS dashboard. Monochrome; emphasis via italic + hairline + scale,
+ * never spot color.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..700;1,400..700&family=Cormorant+Garamond:ital,wght@0,400..600;1,400..600&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Noto+Serif+SC:wght@500;600;700&display=swap');
+
+:root {
+  /* ── BRAND §7.2 font families ── */
+  --sl-font: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+  --sl-font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+  --omem-serif: 'EB Garamond', Garamond, serif;
+  --omem-serif-orn: 'Cormorant Garamond', 'EB Garamond', Garamond, serif;
+  /* Chinese HEADING serif (BRAND §7.2.1). The brand face is FZ清刻本悦宋, a
+     paid Founder face that can't be webfont-distributed — so on the web we use
+     Source Han Serif, which Google serves as "Noto Serif SC" (open, Adobe+Google,
+     freely embeddable). Latin in a zh heading still leads with EB Garamond; only
+     the CJK glyphs fall to the Song face. Used ONLY on /zh-cn/ headings (scoped
+     below) — English pages are untouched. */
+  --omem-serif-zh: 'EB Garamond', Garamond, 'Source Han Serif SC', 'Noto Serif SC', 'Songti SC', serif;
+
+  /* ── BRAND §7.1 palette (raw tokens) ── */
+  --omem-paper: #F5F1E8;
+  --omem-paper-2: #EDE7D7;
+  --omem-paper-3: #E4DCC5;
+  --omem-ink: #2B2A28;
+  --omem-ink-soft: #4A4843;
+  --omem-ink-mute: #6B6862;
+  --omem-ink-faint: #888278;
+  --omem-line-soft: #DDD5BF;
+  --omem-line-hair: #C9C0A8;
+}
+
+/* ─────────────── LIGHT MODE (OMem's native medium: paper + ink) ─────────────── */
+:root[data-theme='light'] {
+  /* Accent = ink (monochrome). Selected/active tints use deeper PAPER, never
+     a hue. Emphasis is tone + hairline, not color. */
+  --sl-color-accent-low: #E4DCC5;   /* deeper paper for selected tint */
+  --sl-color-accent: #2B2A28;       /* ink */
+  --sl-color-accent-high: #2B2A28;  /* ink */
+
+  --sl-color-white: #2B2A28;        /* "white" = strongest text, here ink */
+  --sl-color-gray-1: #2B2A28;
+  --sl-color-gray-2: #4A4843;
+  --sl-color-gray-3: #6B6862;
+  --sl-color-gray-4: #888278;
+  --sl-color-gray-5: #C9C0A8;
+  --sl-color-gray-6: #EDE7D7;
+  --sl-color-gray-7: #F0EBDF;
+  --sl-color-black: #FFFFFF;        /* inside-card surface = white per BRAND */
+
+  --sl-color-bg: var(--omem-paper);
+  --sl-color-bg-nav: var(--omem-paper);
+  --sl-color-bg-sidebar: var(--omem-paper);
+  --sl-color-bg-inline-code: var(--omem-paper-2);
+  --sl-color-hairline: var(--omem-line-soft);
+  --sl-color-hairline-light: var(--omem-line-soft);
+  --sl-color-hairline-shade: var(--omem-line-hair);
+  --sl-color-text: var(--omem-ink-soft);
+  --sl-color-text-accent: var(--omem-ink);
+}
+
+/* ─────────────── DARK MODE (BRAND flip: ink ground + paper text) ─────────────── */
+:root[data-theme='dark'] {
+  /* Accent = paper (monochrome). Selected tints use a deeper ink surface. */
+  --sl-color-accent-low: #3a3733;
+  --sl-color-accent: #F5F1E8;
+  --sl-color-accent-high: #F5F1E8;
+
+  --sl-color-white: #F5F1E8;
+  --sl-color-gray-1: #F5F1E8;
+  --sl-color-gray-2: #E4DCC5;
+  --sl-color-gray-3: #C9C0A8;
+  --sl-color-gray-4: #888278;
+  --sl-color-gray-5: #4A4843;
+  --sl-color-gray-6: #34322f;
+  --sl-color-gray-7: #2f2d2a;
+  --sl-color-black: #232220;
+
+  --sl-color-bg: #232220;
+  --sl-color-bg-nav: #232220;
+  --sl-color-bg-sidebar: #232220;
+  --sl-color-bg-inline-code: #34322f;
+  --sl-color-hairline: #4A4843;
+  --sl-color-text: #E4DCC5;
+  --sl-color-text-accent: #F5F1E8;
+}
+
+/* ─────────────── Typography — clarity first, serif reserved for large titles ───────────────
+   Luxury / editorial taste = ruthless clarity, not ornament. So:
+   - ONLY large headings use the serif (EB Garamond), and in ROMAN (non-italic) —
+     italic serif at small sizes is illegible and is banned here.
+   - Body, UI, captions, taglines, table cells: clean sans (Manrope).
+   - Italic is used sparingly and ONLY at large display sizes for one emphasized
+     phrase — never on small text. */
+
+/* Large headings only — serif roman, generous size. */
+.sl-markdown-content h1,
+.sl-markdown-content h2,
+.sl-markdown-content h3,
+h1.sl-heading {
+  font-family: var(--omem-serif);
+  font-weight: 600;
+  font-style: normal;
+  letter-spacing: -0.005em;
+}
+/* Page title — large, confident, editorial. */
+.sl-markdown-content h1,
+h1.sl-heading {
+  font-size: 2.6rem;
+  line-height: 1.15;
+}
+.sl-markdown-content h2 {
+  font-size: 1.7rem;
+  border-bottom: 0.5px solid var(--sl-color-hairline);
+  padding-bottom: 0.3rem;
+}
+.sl-markdown-content h3 {
+  font-size: 1.3rem;
+}
+/* h4 and below stay in the clean sans for clarity. */
+.sl-markdown-content h4,
+.sl-markdown-content h5 {
+  font-family: var(--sl-font);
+  font-weight: 600;
+}
+
+/* ─────────────── Chinese pages — SERIF HEADINGS only (BRAND §7.2.1) ───────────────
+   On /zh-cn/ pages (Starlight sets <html lang="zh-CN">) the headings render in
+   Source Han Serif (Noto Serif SC) so Chinese titles read as 宋体, matching the
+   editorial voice instead of the system hei (PingFang) the generic stack falls to.
+   BODY text deliberately stays sans here — author's choice. English pages are not
+   matched by this selector at all, so they're untouched.
+
+   The big page title is <h1 id="_top">, which sits OUTSIDE .sl-markdown-content,
+   so it's targeted explicitly — but only under the zh-cn root, never globally. */
+:root[lang='zh-CN'] .sl-markdown-content h1,
+:root[lang='zh-CN'] .sl-markdown-content h2,
+:root[lang='zh-CN'] .sl-markdown-content h3,
+:root[lang='zh-CN'] h1#_top,
+:root[lang='zh-CN'] h1.sl-heading {
+  font-family: var(--omem-serif-zh);
+}
+
+/* Emphasis: keep it the body sans, just italic + slightly heavier — readable.
+   No serif-italic on inline text (that was the illegible bit). */
+.sl-markdown-content em {
+  font-family: var(--sl-font);
+  font-style: italic;
+  font-weight: 500;
+  font-size: inherit;
+}
+
+/* Site title text fallback (when logo image is used, title is hidden, but keep
+   this clean if it ever shows). */
+.site-title, a.site-title {
+  font-family: var(--omem-serif);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* ─────────────── Logo sizing — much bigger per author request ─────────────── */
+/* Full lockup (seal + OMem + tagline), 380×120 ≈ 3.17:1. Taller nav bar so the
+   whole lockup — including the enlarged tagline — reads clearly. */
+:root { --sl-nav-height: 5.25rem; }
+.site-title img,
+header a.site-title img,
+.header a.site-title img {
+  height: 4.25rem !important;
+  width: auto !important;
+  max-width: none !important;
+}
+
+/* ─────────────── Misc editorial polish ─────────────── */
+
+/* Inline code — paper-2 surface, hairline border, mono. */
+.sl-markdown-content :not(pre) > code {
+  border: 0.5px solid var(--sl-color-hairline);
+  border-radius: 3px;
+  font-size: 0.88em;
+}
+
+/* <details> deep-dive — paper-2 card, hairline. Summary in clean sans (legible). */
+.sl-markdown-content details {
+  background: var(--sl-color-gray-6);
+  border: 0.5px solid var(--sl-color-hairline);
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+}
+.sl-markdown-content details summary {
+  font-family: var(--sl-font);
+  font-weight: 600;
+  font-size: 0.98rem;
+  cursor: pointer;
+  color: var(--sl-color-text-accent);
+}
+
+/* ─────────────── Asides / callouts — paper-on-ink, NO hue ───────────────
+   Starlight's default note=blue / tip=purple / caution=yellow / danger=red
+   are off-brand. Force every variant to the paper/ink palette: a deeper-paper
+   surface + an ink hairline left edge + ink text. Differentiate type by a tiny
+   tone shift only, never by color. (BRAND §7.1) */
+.sl-markdown-content .starlight-aside {
+  background: var(--sl-color-gray-6);              /* Paper-2 */
+  border-inline-start: 2px solid var(--sl-color-text-accent);  /* ink edge */
+  border-radius: 0 4px 4px 0;
+  color: var(--sl-color-text);
+}
+.sl-markdown-content .starlight-aside--note {
+  background: var(--sl-color-gray-6);
+}
+.sl-markdown-content .starlight-aside--tip {
+  background: var(--sl-color-gray-7);              /* slightly different paper tone */
+}
+.sl-markdown-content .starlight-aside--caution,
+.sl-markdown-content .starlight-aside--danger {
+  background: var(--sl-color-gray-6);
+  border-inline-start-width: 3px;                  /* heavier edge = more weight */
+}
+/* Title + icon in ink, not the variant hue. */
+.sl-markdown-content .starlight-aside__title {
+  color: var(--sl-color-text-accent);
+  font-family: var(--sl-font);
+  font-weight: 600;
+}
+.sl-markdown-content .starlight-aside__icon {
+  color: var(--sl-color-text-accent);
+}
+.sl-markdown-content .starlight-aside a {
+  color: var(--sl-color-text-accent);
+  text-decoration-thickness: 0.5px;
+  text-underline-offset: 0.2em;
+}
+
+/* ─────────────── React island components fill the content column ───────────────
+   Astro islands (<astro-island>) are inline by default; that lets an inner
+   width:100% element shrink-to-fit and leave a big empty gutter on the right.
+   Force island wrappers to full-width blocks so interactive components
+   (PositioningMatrix, IngestPipeline, …) stretch edge-to-edge like a normal
+   markdown table. */
+.sl-markdown-content astro-island {
+  display: block;
+  width: 100%;
+}
+
+/* ─────────────── Reset Starlight's flow margins inside React islands ───────────────
+   Starlight adds top margin to adjacent siblings inside `.sl-markdown-content`
+   (the `* + *` flow-spacing rule that spaces paragraphs/lists). That margin
+   leaks into our React components — e.g. the 2nd/3rd tab in a row gets a 16px
+   margin-top while the 1st doesn't, so tabs render at different heights and
+   offsets ("first one tall, rest short and pushed down"). Components manage
+   their own spacing with inline styles, so zero the inherited flow margins
+   on every element inside an island. */
+.sl-markdown-content astro-island * {
+  margin-top: 0;
+}
+
+
+
+/* ─────────────── Homepage hero — serif title, big tagline, large seal ───────────────
+   The splash hero's title ("OMem") + tagline are the brand serif, matching the
+   editorial feel. The seal mark (no wordmark) sits beside it as a large, plain
+   logo — the single most prominent OMem mark on the page. */
+.hero h1,
+.hero .hero-html h1 {
+  font-family: var(--omem-serif);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.hero .tagline {
+  font-family: var(--omem-serif-orn);
+  font-style: italic;
+  font-size: clamp(1.4rem, 2.6vw, 1.9rem);   /* much larger than the default */
+  line-height: 1.35;
+  color: var(--sl-color-text-accent);
+  opacity: 0.9;
+}
+/* The hero seal: a square mark — present but not oversized. */
+.hero img {
+  width: min(14rem, 44vw);
+  height: auto;
+  margin-inline: auto;
+}
+
+/* ─────────────── Card icons — monochrome (no SaaS color chips) ───────────────
+   Starlight's <Card icon> renders the icon in a tinted rounded square that
+   cycles colors. Force ink-on-paper: a paper-2 square with an ink glyph,
+   per BRAND §7.1 (no hue). */
+.sl-markdown-content .card .icon,
+.card .icon {
+  background: var(--sl-color-gray-6) !important;
+  color: var(--sl-color-text-accent) !important;
+  border: 0.5px solid var(--sl-color-hairline);
+}

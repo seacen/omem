@@ -1,0 +1,75 @@
+---
+title: Ingest files
+description: Point OMem at a folder — OneDrive, iCloud Drive, Downloads, a project directory — and ingest every supported document inside. Configure roots, size limits, and exclusions.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+**Read this if** you want OMem to ingest documents from a folder on your Mac — your synced OneDrive, an iCloud Drive folder, a project directory, anything. The `file` kind is the universal one: point it at a directory and it ingests every supported format inside.
+
+## Turn it on
+
+The fastest path is the [setup wizard](/getting-started/02-setup-wizard/), which auto-detects OneDrive / iCloud / Dropbox / Documents and lets you pick. To configure it by hand:
+
+<Steps>
+
+1. **Set the folders to ingest** (the "roots"):
+
+   ```bash
+   omem config set kinds.file.source_config.roots '["~/Library/CloudStorage/OneDrive-Personal", "~/Documents/projects"]'
+   ```
+
+2. **Enable the kind:**
+
+   ```bash
+   omem config set kinds.file.enabled true
+   ```
+
+3. **Ingest:**
+
+   ```bash
+   omem ingest --kind file
+   ```
+
+</Steps>
+
+<Aside type="note" title="Where OneDrive / iCloud actually live">
+On modern macOS these aren't in your home folder directly. OneDrive is under `~/Library/CloudStorage/OneDrive-<Tenant>/`; iCloud Drive is under `~/Library/Mobile Documents/com~apple~CloudDocs/`. The wizard finds these for you — if you're setting roots by hand, that's where to look.
+</Aside>
+
+## What gets ingested
+
+Every [supported format](/reference/03-file-formats/) inside your roots — PDF, Word, PowerPoint, Excel, Markdown, text, HTML, images. Two scope filters keep it sane (both adjustable):
+
+| Setting | Default | What it does |
+|---|---|---|
+| `kinds.file.scope.max_file_size_mb` | `50` | Skip files larger than this. |
+| `kinds.file.scope.exclude_patterns` | `["~$*", ".DS_Store", "node_modules/**"]` | Glob patterns to skip. |
+
+For example, to also skip a `tmp` folder:
+
+```bash
+omem config set kinds.file.scope.exclude_patterns '["~$*", ".DS_Store", "node_modules/**", "tmp/**"]'
+```
+
+## Confirm it worked
+
+```bash
+omem ingest status        # what the last run did
+omem wiki ls --kind file  # the pages it produced
+```
+
+If something didn't ingest, `omem ingest errors` shows what failed and why. See [observing ingest](/how-to/11-observe-ingest/).
+
+<Aside type="tip" title="Placeholder files are handled">
+If your OneDrive uses "Files On-Demand" (some files are cloud placeholders, not downloaded), OMem materializes them as it reads them — you don't have to download everything first.
+</Aside>
+
+## Cloud `.loop` files
+
+When OMem walks a synced OneDrive folder and finds a `.loop` file, it doesn't try to parse that binary — it hands it to the `loop` kind to resolve from SharePoint. See [ingest Loop notes](/how-to/04-ingest-loop/).
+
+## What's next
+
+- **[Ingest mail](/how-to/02-ingest-mail/)** / **[calendar](/how-to/03-ingest-calendar/)** — the other local sources.
+- **[Supported file formats](/reference/03-file-formats/)** — exactly what each format gets.

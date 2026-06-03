@@ -1,0 +1,75 @@
+---
+title: What is OMem?
+description: OMem gives any AI agent the work context it has always lacked — a local-first, agent-agnostic memory layer that auto-ingests your real office work. How it differs from PKM tools, enterprise search, and chat-memory SDKs.
+---
+
+import PositioningMatrix from '../../../components/PositioningMatrix.tsx';
+import { Aside } from '@astrojs/starlight/components';
+
+**Read this if** you've used an AI agent for real work — Claude Code, Cursor, Codex, OpenClaw, Hermes — and kept hitting the same wall: it's clever, but it has no idea what you actually do all day. This page explains what OMem is, what it deliberately is *not*, and where it sits among the tools that look similar.
+
+## The agent that can't see your work
+
+Picture a consultant — call her Alice — six months into a project for a client, Acme Corp. Along the way: 400 emails, three contract drafts, a dozen decks, a few Excel models, two dozen meeting notes, a stack of PDFs the client kept sending, and a shared note where someone wrote *"Bob proposed dropping scope item 3, Carol pushed back, we agreed to revisit next quarter."*
+
+Now it's next quarter. Alice opens her AI agent: *"Help me draft the kickoff for the Acme Q3 review. What were the open items we promised to revisit?"*
+
+The agent has no idea what she's talking about. So it returns a polished, generic Q3-review template. Beautiful prose, zero ground truth. Alice spends 20 minutes pasting in two emails, a meeting note, and a slide — by which point she could have written it herself.
+
+The agent isn't failing because it isn't smart enough. **It's failing because it can't see any of the work going on around her.**
+
+## What OMem is
+
+OMem is a layer you install on your computer that does one thing: it **automatically and continuously turns the real work scattered across your machine — email, calendar, meeting notes, and files (Office formats, PDFs, images, HTML, Markdown) — into a wiki that any AI agent can actually query.**
+
+The arrival that makes this matter: a new class of agents (Claude Code, Codex, OpenClaw, Hermes) can genuinely *do work* now — write a deck, build a spreadsheet model, drive a browser to pull data from an internal system. The one thing still stopping them is that they can't see your work context. **"Capable agents" and "your real work context" have never been connected. OMem is that connection.**
+
+Once OMem has your context, the same agent that gave Alice a generic template can instead answer: *"Last quarter you and Bob agreed to revisit scope item 3 after Carol's pushback — here's the kickoff, with that item flagged as the first open question,"* and then go build the deck.
+
+<Aside type="note" title="Where the output lives">
+The wiki is a folder of plain Markdown files in a directory **you choose** — the default `~/omem/wiki/`, or inside an Obsidian vault, or in a git repo. Not a vendor cloud, not a SQLite blob you can't read. You can browse it in Finder, `grep` it, hand-edit a page, or version-control it.
+</Aside>
+
+## What OMem is not
+
+OMem is easy to mistake for tools it isn't. The fastest way to understand it is by contrast — **no existing tool sits where OMem does.** Click any row to see what it has and what it lacks:
+
+<PositioningMatrix client:load />
+
+Three properties define the space, and OMem is the only tool with all three:
+
+1. **Local-first** — your data stays on your computer. No vendor cloud, no Graph API admin consent, no IT ticket.
+2. **Auto-ingest of real work** — from where it actually lives, not from where you re-type it.
+3. **Agent-agnostic** — the same memory feeds Claude Code today and whatever agent you switch to next year.
+
+<details>
+<summary>The longer version of each comparison</summary>
+
+- **Chat-memory SDKs (mem0, Letta, Zep)** remember what was *said* in conversations with an agent. They never read your inbox or open your PDFs. They're infrastructure for developers building chat apps — not a product for a knowledge worker handing context to an agent they already use.
+- **OpenViking** is the closest neighbor on the technical axes — ByteDance's open-source context database for agents. Be precise about it: it *is* local-first (self-host via Docker / pip / Ollama) and it *is* agent-agnostic (any MCP client). OMem even borrowed its L0–L3 progressive-disclosure design from OpenViking's tiered context loading. The one thing it misses is the decisive one: you feed content into it programmatically (`ov add-resource …`). It doesn't auto-ingest the real work — the inbox, the synced OneDrive folder, the PDFs in Downloads — already sitting on your machine. That gap is exactly what OMem fills: it's the product that *populates* a structure like this automatically, from your actual office work.
+- **Enterprise search (Glean, Coveo, Microsoft 365 Copilot)** are real products for enterprise IT: they ingest company data into a vendor cloud after a multi-week onboarding, cost $30–40 per seat per month, and require admin consent on Graph API tenants. Two catches. First, the index only feeds *their* assistant — Glean's index doesn't feed your Claude Code, Copilot's doesn't feed your Cursor. Second, even Copilot, which *can* reach your M365 data, tops out at "assist" (summarize an email, restyle a slide) — it can't be the capable agent that builds the whole deck. And if your IT department hasn't bought any of this, you have no path to it at all.
+- **Local PKM (Obsidian, Logseq, Notion AI)** are wonderful tools that remember what you *manually* put into them. They don't auto-ingest the Outlook inbox you live in or the PDFs in your Downloads folder. In practice your real work stays where it is and the PKM fills with intentions.
+- **GBrain** is the closest in philosophy — markdown-as-memory, agent-agnostic. But it's bring-your-own-markdown: you write the notes. It doesn't auto-ingest your real office data. (Different audience, cleanly separate from OMem.)
+
+</details>
+
+## How OMem works, in one breath
+
+You install it, run `omem setup`, pick what to ingest and which LLM provider curates it, and walk away. From then on OMem runs as a short-lived process every few minutes — no daemon, just system timers. Each run finds new or changed items, parses them to Markdown, describes embedded images with a vision model, curates them into clean wiki pages, and indexes them. Your agent queries the result through one CLI.
+
+That's the shape. The rest of this section unpacks it:
+
+- **[Progressive disclosure](/concepts/02-progressive-disclosure/)** — why an agent gets a one-line summary first and the full document only on demand.
+- **[Kinds and sources](/concepts/03-kinds-and-sources/)** — the four kinds of work OMem reads (file, mail, calendar, loop) and where each comes from.
+- **[The ingest lifecycle](/concepts/04-ingest-lifecycle/)** — what actually happens to one item as it becomes a wiki page.
+- **[The plugin architecture](/concepts/05-plugin-architecture/)** — the extension points that keep OMem from locking you in.
+- **[Design principles](/concepts/06-design-principles/)** — the eight ideas the whole thing is built on, including *why the wiki is the truth and the index is just an opinion.*
+- **[Querying from an agent](/concepts/07-querying-from-an-agent/)** — how your agent actually reaches all this.
+
+<Aside type="tip" title="New to OMem?">
+If you just want to get it running, jump to [Install](/getting-started/01-install/) and come back here when you want to understand *why* it's shaped this way.
+</Aside>
+
+## Available today
+
+OMem runs on **macOS today; Windows is coming.** It's free for personal use. If you want to roll it out across a team or build it into a company's workflow, [reach out](/faq/#licensing-and-commercial-use) — that's a conversation worth having.

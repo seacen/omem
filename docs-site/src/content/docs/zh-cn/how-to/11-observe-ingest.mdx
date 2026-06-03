@@ -1,0 +1,148 @@
+---
+title: 盯着摄入跑
+description: 看清 OMem 在干什么——正在跑的、跑过的、每个条目的结果、失败的、还有日志。分得清"慢"和"卡死"，能钻进单个条目的历史，也能把一个卡住的运行停掉。
+---
+
+import CommandExplorer from '../../../../components/CommandExplorer.tsx';
+import { Aside } from '@astrojs/starlight/components';
+
+**适合这样的你**：摄入正在跑，你想知道它到底在忙什么——哪些成了、哪些挂了、一个跑了半天的运行是在推进还是真卡住了。OMem 把每一次运行都记进一张事件表里；下面这些命令读的就是它。
+
+## 看当下的状态
+
+`omem ingest status` 会把正在跑的那次运行（如果有的话）连同最近跑完的那次一起列出来：
+
+<CommandExplorer client:load lang="zh" sessions={[{
+  command: 'omem ingest status',
+  output: [
+    '正在跑：',
+    '  run e8053467  kind=file  source=local-files',
+    '    当前阶段： parse',
+    '    各阶段进度： raw 640  parse 812  curate 480  wiki 478',
+    '',
+    '最近跑完的：',
+    '  run a1f9c0d2  kind=mail  source=mail-app',
+    '    跑完于 2026-06-02 14:30  duration=4m12s',
+    '    ingest 88  cache 410  recur 0  fail 0',
+  ],
+}]} />
+
+## 四种结局
+
+那几个计数器（`ingest` / `cache` / `recur` / `fail`），就是每个条目最后会落进的四种结局——值得认一认：
+
+| 计数器 | 结局 | 含义 |
+|---|---|---|
+| `ingest` | `ingested` | 新的或改过的——完整处理了一遍，调了 LLM。 |
+| `cache` | `curator_cache_hit` | 上次之后没动过——**没调 LLM**，页面原样不动。重跑之所以便宜，就在这儿。 |
+| `recur` | `recurated` | 重新处理了，因为整理用的 prompt 版本变了。 |
+| `fail` | `failed` | 出错了——去看 `omem ingest errors`。 |
+
+一次运行里大头是 `cache`，那是 OMem 在高效干活，不是在偷懒。
+
+## 看跑过的运行
+
+`omem ingest history` 是一张表，一次运行一行：
+
+<CommandExplorer client:load lang="zh" sessions={[{
+  command: 'omem ingest history',
+  output: [
+    'run_id     started              kind      ingest cache recur fail skip  parse  vlm_t curate    duration  outcome',
+    '-------------------------------------------------------------------------------------------------------------------',
+    'e8053467   2026-06-02 14:45     file         640   160     0   12    0   38.1   12.4   84.0   (running)  running',
+    'a1f9c0d2   2026-06-01 09:00     mail          88   410     0    0    0    0.0    0.0   52.3      4m12s   done',
+    'b30e7711   2026-05-31 09:00     file         204   980     0    3    0   71.2   20.1  150.6      9m03s   done',
+  ],
+}]} />
+
+## 实时盯一次运行
+
+`omem ingest watch` 会一直跟着事件表走——每个条目的每个阶段一发生，就立刻打出一行，最新的在最底下（就像 `tail -f`）。按 Ctrl+C 停：
+
+<CommandExplorer client:load lang="zh" sessions={[{
+  command: 'omem ingest watch',
+  output: [
+    '[2026-06-02 14:46:01] file/local-files raw            ok       .../Atlas-Q3-review.pptx 40ms',
+    '[2026-06-02 14:46:02] file/local-files parse          ok       .../Atlas-Q3-review.pptx 1180ms',
+    '[2026-06-02 14:46:05] file/local-files vlm            ok       .../Atlas-Q3-review.pptx 3100ms',
+    '[2026-06-02 14:46:08] file/local-files curate         ingested .../Atlas-Q3-review.pptx 2800ms',
+    '[2026-06-02 14:46:08] file/local-files wiki           ok       .../Atlas-Q3-review.pptx 12ms',
+    '[2026-06-02 14:46:09] file/local-files curate         cache_hit .../Q2-actuals.xlsx',
+    '[2026-06-02 14:46:12] file/local-files curate         failed   .../big-deck.pptx 30200ms',
+  ],
+}]} />
+
+每一行的格式是 `[时间戳] kind/source <阶段> <状态> <条目> <耗时>`。你可以只盯某几个阶段（`--phase parse,curate`）或某一类（`--kind mail`），也能调轮询间隔（`--poll 2`）。想看清一个慢条目把时间耗在了*哪一步*，这是最好的办法——盯住哪个阶段那一行迟迟不出现就行。
+
+## 查失败
+
+`omem ingest errors` 会把挂掉的列出来，连带错误信息：
+
+<CommandExplorer client:load lang="zh" sessions={[{
+  command: 'omem ingest errors',
+  output: [
+    '✗ 2026-06-02 14:46  kind=file  source=local-files  run=e8053467',
+    '    条目： .../Acme/big-deck.pptx',
+    '    结局： failed @curate (rate_limit)',
+    '    错误： 429 rate limit exceeded — retry after 30s',
+    '    → omem log tail --grep 9f2a1c',
+  ],
+}]} />
+
+失败的条目会在下一次运行时自动重试——所以一阵子的小抖动（一次限流、一次偶发的读取失败）会自己消化掉，不用你做什么。
+
+## 钻进单个条目——还不用重新摄入
+
+`omem ingest item <uri>` 会把单个条目的来龙去脉追出来：
+
+<CommandExplorer client:load lang="zh" sessions={[{
+  command: 'omem ingest item "~/OneDrive/Atlas-Q3-review.pptx"',
+  output: [
+    '条目： ~/OneDrive/Atlas-Q3-review.pptx',
+    '最近一次运行： a1f9c0d2',
+    '',
+    '阶段轨迹（最近一次运行）：',
+    '  ✓0.4   raw',
+    '  ✓1.2   parse',
+    '  ✓3.1   vlm     （描述了 3 张图）',
+    '  ✓2.8   curate  → ingested',
+    '',
+    '历史运行（最近 2 次）：',
+    '  run_id     started              final           phase_failed',
+    '  a1f9c0d2   2026-06-01 09:00     ingested        -',
+    '  e8053467   2026-06-02 14:45     cache_hit       -',
+  ],
+}]} />
+
+<Aside type="note" title="查，从来不花你一分钱">
+`omem ingest item` 是对已记录事件的一次*查询*——它绝不会触发摄入，也不会调 LLM。想钻进"这个文件到底经历了什么"，永远免费。
+</Aside>
+
+## 是卡死了，还是只是慢？
+
+要是一次运行看着像冻住了，先弄清楚是哪种，再动手：
+
+1. **`omem ingest watch`**——还在不断有新事件冒出来吗？那它就是在干活，只是慢（一个大 PDF、qmd 模型冷启动在加载、一次慢吞吞的 Loop 拉取）。
+2. **`omem log tail -f`**——实时跟着日志走；加 `--grep <text>` 可以过滤。
+3. **`omem log errors --since 1h`**——跨所有运行、最近冒出来的错误。
+
+## 把卡住的运行停掉
+
+要是一次运行是真卡死了（不是单纯慢），把它停掉：
+
+```bash
+omem ingest cancel              # 取消正在跑的那次（会让你确认）
+omem ingest cancel e8053467     # 按 id 前缀取消指定的某次
+omem ingest cancel --all        # 取消每一个正在跑的运行
+```
+
+cancel 会先发一个温和的停止信号（SIGTERM），必要时再退到硬杀（`--force` 跳过那段宽限期；`--yes` 跳过确认）。这么做是安全的：被取消的运行不会为没干完的活推进它的 cursor，所以**下一次定时运行会精确地从它停下的地方接着干**——什么都不会丢，也不会重复处理。当一次摄入正卡着你、你宁愿重来一遍时，就用这条命令。
+
+<Aside type="caution" title="用 cancel，别 kill -9">
+要停就用 `omem ingest cancel`，别自己去杀进程。cancel 会写下一条干净的停止记录、把锁释放掉，下一次运行才能正常开始；而一记生硬的 `kill` 可能留下一把没清掉的锁，害得下次运行误以为已经有一个在跑了。
+</Aside>
+
+## 接下来
+
+- **[摄入生命周期](/zh-cn/concepts/04-ingest-lifecycle/)**——这些阶段都是什么意思。
+- **[给摄入定时](/zh-cn/how-to/08-launchd-schedule/)**——把它自动化，然后回这儿盯着它。

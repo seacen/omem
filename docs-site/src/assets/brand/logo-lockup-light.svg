@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- OMem horizontal lockup — LIGHT (ink on paper). For Starlight light theme. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 120" role="img" aria-label="OMem — the office your AI remembers.">
+  <style><![CDATA[
+    @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&amp;family=Cormorant+Garamond:ital,wght@0,300..700;1,300..700&amp;display=swap');
+  ]]></style>
+  <g transform="translate(0,15) scale(0.9)">
+    <rect x="4" y="4" width="92" height="92" rx="3" fill="none" stroke="#2B2A28" stroke-width="1.5"/>
+    <rect x="8.5" y="8.5" width="83" height="83" rx="2" fill="none" stroke="#2B2A28" stroke-width="0.7"/>
+    <text x="50" y="22" font-family="'Cormorant Garamond', 'EB Garamond', Garamond, serif" font-weight="500" font-size="6.5" fill="#2B2A28" text-anchor="middle" letter-spacing="2">EX OFFICIO</text>
+    <line x1="42" y1="27" x2="58" y2="27" stroke="#2B2A28" stroke-width="0.4"/>
+    <text x="50" y="60" font-family="'EB Garamond', Garamond, serif" font-style="italic" font-weight="500" font-size="36" fill="#2B2A28" text-anchor="middle">OM</text>
+    <line x1="20" y1="74" x2="80" y2="74" stroke="#2B2A28" stroke-width="0.7"/>
+    <text x="50" y="84" font-family="'Cormorant Garamond', 'EB Garamond', Garamond, serif" font-style="italic" font-weight="400" font-size="5.5" fill="#2B2A28" text-anchor="middle" letter-spacing="1.8">MEMORIA</text>
+  </g>
+  <text x="115" y="56" font-family="'EB Garamond', Garamond, serif" font-weight="500" font-size="44" fill="#2B2A28" letter-spacing="-1.5">OMem</text>
+  <line x1="115" y1="70" x2="370" y2="70" stroke="#2B2A28" stroke-width="0.5"/>
+  <text x="115" y="92" font-family="'Cormorant Garamond', 'EB Garamond', Garamond, serif" font-style="italic" font-weight="500" font-size="18" fill="#2B2A28" fill-opacity="0.85" letter-spacing="0.3">The office your AI remembers.</text>
+</svg>

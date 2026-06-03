@@ -1,0 +1,59 @@
+---
+title: 摄入 Loop 笔记
+description: 摄入 Microsoft Teams Loop 页面。OMem 在你同步下来的 OneDrive 里找到 .loop 指针,解析到 SharePoint,再通过一次性的浏览器登录把渲染好的内容抓回来。
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+**如果你的会议纪要记在 Microsoft Teams Loop 里、想把它们弄进 OMem**,那就看这一页。Loop 是唯一一个需要一次性浏览器登录的数据源,因为一个 `.loop` 文件其实算不上是文档——它是一个指针,指向真正存在 SharePoint 上的内容。
+
+## Loop 为什么不一样
+
+同步到你 OneDrive 的那个 `.loop` 文件,是一份二进制的 Fluid 快照——真正的笔记内容不在里面,而在 SharePoint 上。所以 OMem 会 [把这个指针分派出去](/zh-cn/concepts/06-design-principles/)(设计原则 P8):它从你 OneDrive 的同步数据库里读出 SharePoint 链接,用你现成的登录态、开一个无头浏览器打开那一页,再把渲染出来的笔记抓成 Markdown。也正因如此,Loop 比别的数据源多要两样东西:OneDrive 得正在同步,而且你得登录一次。
+
+## 打开它
+
+<Steps>
+
+1. **登录一次。** 这会弹出一个浏览器窗口让你登录 Microsoft,并把会话存下来:
+
+   ```bash
+   omem setup --browser
+   ```
+
+2. **打开这一类,然后摄入:**
+
+   ```bash
+   omem config set kinds.loop.enabled true
+   omem ingest --kind loop
+   ```
+
+</Steps>
+
+抓取**天生就慢**——每页大约 30 秒,因为每一页都是在一个真实浏览器里渲染出来的。OMem 一次只抓两三页(`kinds.loop.scope.max_fetch_concurrency`,默认 2)。
+
+## 确认它跑成了
+
+```bash
+omem query "那次筹备同步会的纪要" --kind loop
+omem wiki ls --kind loop
+```
+
+## 它出问题的时候
+
+Loop 比本地那几个数据源环节多,所以它的失败花样也最具体:
+
+- **`LoopSyncEngineDbNotFound`**——OneDrive 没在同步,或者它的数据库不在 OMem 预期的位置。确认 OneDrive 正在运行、而且已登录。
+- **`LoopFetchTimeout`**——那个 SharePoint 页面没在限时内渲染出来(网络慢,或者页面太大)。
+- **会话过期**——重跑 `omem setup --browser` 刷新登录态。
+
+完整的排查见 **[Loop 抓取失败](/zh-cn/troubleshooting/02-common-errors/)**。
+
+<Aside type="caution" title="它从 SharePoint 抓,不是从 .loop 文件抓">
+因为真正的内容在 SharePoint 上,OMem 只能抓到你账号在那儿还访问得到的东西。要是某条笔记的 SharePoint 权限变了,哪怕 `.loop` 文件还好端端躺在你磁盘上,OMem 也解析不出来。
+</Aside>
+
+## 接下来
+
+- **[Loop 抓取失败](/zh-cn/troubleshooting/02-common-errors/)**——上面那些错误怎么修。
+- **[指针分派这套模式](/zh-cn/concepts/06-design-principles/)**——Loop 催生出来的那个设计思路。

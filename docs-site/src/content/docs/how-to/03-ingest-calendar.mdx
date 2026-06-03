@@ -1,0 +1,84 @@
+---
+title: Ingest calendar
+description: Ingest your calendar events from macOS Calendar's local store. Exchange, iCloud, and CalDAV accounts all flow through it. Configure the time window and which sub-calendars to include.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+**Read this if** you want OMem to ingest your calendar events. On macOS it reads Apple Calendar's local store (`calendar-app`) directly — so Exchange, iCloud, and CalDAV accounts all flow through one source, symmetric with how [mail](/how-to/02-ingest-mail/) works.
+
+<Aside type="note" title="Local store, not Outlook Web">
+The default source is `calendar-app`, reading the local Calendar database. An earlier design routed calendar through a browser-scraped Outlook Web; that was changed because reading the local store is more reliable. You won't need a browser session for calendar.
+</Aside>
+
+<Aside type="caution" title="Calendar's permission changed in macOS 26">
+Where macOS keeps the Calendar database — and therefore which permission OMem needs — depends on your version:
+
+- **macOS ≤ 12 (older):** Calendar lives at `~/Library/Calendars/Calendar Cache` and is gated by the **Calendars privacy permission**. macOS prompts for it normally.
+- **macOS 26 (Tahoe) and newer:** Calendar moved into a sandboxed group container (`~/Library/Group Containers/group.com.apple.calendar/Calendar.sqlitedb`), so access is now gated by **Full Disk Access** — exactly like [mail](/how-to/02-ingest-mail/). macOS never prompts for FDA automatically; you add the `omem` binary by hand.
+
+Either way, `omem setup --grant-tcc` detects your version and walks you through the right one. If calendar ingests nothing on macOS 26, it's almost always missing FDA — see [common errors](/troubleshooting/02-common-errors/#macos-permissions-tcc--fda).
+</Aside>
+
+## Turn it on
+
+<Steps>
+
+1. **Grant access.** Calendar needs a macOS permission — the wizard handles it, or run it directly:
+
+   ```bash
+   omem setup --grant-tcc
+   ```
+
+   **Which permission depends on your macOS version** (see the note below): older macOS grants a Calendars privacy permission (a normal prompt), while macOS 26+ needs **Full Disk Access** — the same as mail.
+
+2. **Set the time window.** Calendar uses a **symmetric** window — recent past *and* near future (defaults: 3 months back, 3 months forward):
+
+   ```bash
+   omem config set kinds.calendar.scope.time_window.since 6m_ago
+   omem config set kinds.calendar.scope.time_window.until 6m_from_now
+   ```
+
+3. **Enable and ingest:**
+
+   ```bash
+   omem config set kinds.calendar.enabled true
+   omem ingest --kind calendar
+   ```
+
+</Steps>
+
+## Pick which sub-calendars
+
+If you subscribe to noisy calendars (holidays, birthdays, a shared team calendar), restrict ingest to the ones you care about. `null` (the default) means **all** sub-calendars:
+
+```bash
+omem config set kinds.calendar.scope.calendars '["Calendar", "Work"]'
+```
+
+## Other scope knobs
+
+| Setting | Default | What it does |
+|---|---|---|
+| `kinds.calendar.scope.include_recurring_instances` | `true` | Expand each occurrence of a recurring event. |
+| `kinds.calendar.scope.max_events_per_account` | `5000` | Cap per account. |
+| `kinds.calendar.scope.include_attachments` | `true` | Ingest meeting-agenda attachments (PDFs, etc.). |
+| `kinds.calendar.scope.max_attachment_size_mb` | `50` | Skip larger attachments (metadata-only line kept). |
+
+## Confirm it worked
+
+```bash
+omem query "the offsite planning meeting" --kind calendar
+omem wiki ls --kind calendar
+```
+
+Each event page carries its time, location, organizer, and attendees, plus any attached agenda.
+
+<Aside type="caution" title="Calendar deletions are permanent">
+Unlike mail (which has a trash you can restore from), a deleted calendar event is gone — OMem can't revive its page the way it [revives a deleted file's page](/concepts/04-ingest-lifecycle/#deletion-is-soft-and-reversible). Worth knowing if you prune your calendar aggressively.
+</Aside>
+
+## What's next
+
+- **[Ingest Loop notes](/how-to/04-ingest-loop/)** — the one source that needs a browser sign-in.
+- **[Ingest mail](/how-to/02-ingest-mail/)** — the sibling local source.

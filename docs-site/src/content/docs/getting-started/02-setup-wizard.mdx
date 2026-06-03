@@ -1,0 +1,120 @@
+---
+title: Run the setup wizard
+description: Run omem setup once to choose where your wiki lives, pick an LLM provider, turn on the kinds of work to ingest, and grant macOS permissions. About five minutes, walked step by step.
+---
+
+import CommandExplorer from '../../../components/CommandExplorer.tsx';
+import { Aside, Tabs, TabItem, Steps } from '@astrojs/starlight/components';
+
+**Read this if** you've [installed OMem](/getting-started/01-install/) and want to connect it to your data. `omem setup` is a one-time wizard — run it once, answer a handful of questions, and OMem is configured. This page walks each step so nothing surprises you, especially the macOS permission part.
+
+## Start the wizard
+
+```bash
+omem setup
+```
+
+It runs as a guided, step-by-step flow — you can take the default on almost every question. Nothing starts ingesting in the background until you finish; the wizard only writes your config.
+
+<Aside type="tip" title="Or let your agent run it with you">
+You can also tell your AI agent "run me through `omem setup`" and answer its questions in plain language — it'll explain each step as it goes. The wizard itself is the same either way.
+</Aside>
+
+## What the wizard asks
+
+The flow is a short series of steps. Here's what each one decides — defaults in **bold**.
+
+<Steps>
+
+1. **Where your wiki lives.** OMem writes your memory as a folder of Markdown files. Pick **the default (`~/omem/wiki`)**, an existing Obsidian vault, or a custom path. (You can move it later with `omem wiki move`.) You also pick the output language here: **auto** (each page follows its source document's language), or force `zh` / `en`.
+
+2. **Scheduled ingest.** Pick an interval (e.g. every 15 minutes) or skip it. **Important:** this step only *records the interval in your config* — it does **not** install the schedule. The wizard writes config; registering the actual timer is a separate `omem install` step you run afterward (see the callout below). See [scheduling](/how-to/08-launchd-schedule/).
+
+3. **Search index.** The **built-in `fts5`** (fast keyword search, zero setup) works out of the box, but we **recommend enabling the `qmd` plugin** — it adds semantic and cross-language search and is markedly better on real work. `qmd` needs a separate binary (Node-based) and, on its **first** `omem ingest` or `omem query`, lazily downloads **~2.2 GB** of local models — a one-time cost that makes the first run slow. Pick qmd if you can; `fts5` is the dependable fallback. See [retrieval](/concepts/08-retrieval/).
+
+4. **LLM + vision provider.** Which model curates your pages and describes images. See [the provider choices](#choosing-an-llm-provider) below.
+
+5. **Each kind of work** — files, mail, calendar, Loop notes. Every kind is **off by default**; you turn on the ones you want and OMem helps you configure each (which folders, which mail accounts, which calendars). This is also where macOS asks for permission — see [granting access](#granting-macos-access).
+
+6. **Browser session** (only if you enabled Loop) — a one-time sign-in so OMem can fetch your Teams Loop pages.
+
+</Steps>
+
+When you finish, OMem writes your config (atomically, with a backup of the old one). Nothing has been ingested yet — that's the [next page](/getting-started/03-first-query/).
+
+<Aside type="caution" title="You must run `omem install` — setup does not schedule anything">
+This is the single most-forgotten step. **`omem setup` only writes config; it never installs the schedule** — even if you picked an interval in step 2. So after setup, no matter what you chose, OMem will *not* run on its own until you explicitly register the timer:
+
+```bash
+omem install
+```
+
+That's it — `omem install` reads the interval you already set in config; you don't repeat it. You'll see this in the setup summary too: it prints `Scheduled ingest: every 15 min (cfg only — NOT YET INSTALLED)`. Until you run `omem install`, OMem only ingests when you run `omem ingest` by hand, and your wiki goes stale. See [scheduling](/how-to/08-launchd-schedule/).
+</Aside>
+
+<Aside type="note" title="Optional: LibreOffice for vector images">
+Office documents often embed **EMF/WMF** vector images (pasted charts, SmartArt). OMem converts these to PNG so the vision model can describe them — but that conversion needs LibreOffice. If you don't have it, those images are skipped (everything else still ingests). To enable them:
+
+```bash
+brew install --cask libreoffice
+```
+
+The setup wizard notes this if it doesn't detect LibreOffice; it's purely optional.
+</Aside>
+
+## Choosing an LLM provider
+
+OMem doesn't ship a model — you point it at one. The curator (text → wiki page) and the vision model (image → description) can even use different providers. Four options:
+
+<Tabs>
+  <TabItem label="Claude subscription">
+  **`anthropic-oauth`** — uses your Claude Pro / Max subscription. No API key to paste; the wizard handles sign-in. The simplest path if you already pay for Claude. This is the default.
+  </TabItem>
+  <TabItem label="Anthropic API">
+  **`anthropic-api`** — the Anthropic API, billed per token. You provide an API key (stored in an env var or the macOS Keychain, never in the config file).
+  </TabItem>
+  <TabItem label="OpenAI-compatible">
+  **`openai-compat`** — any endpoint that speaks the OpenAI API: OpenAI itself, a hosted gateway, or **a local model on your own machine** (point `base_url` at your local server). The escape hatch for "I want to run my own model."
+  </TabItem>
+  <TabItem label="ChatGPT subscription">
+  **`openai-chatgpt-oauth`** — uses your ChatGPT Plus / Pro subscription. Like the Claude option, the wizard handles sign-in.
+  </TabItem>
+</Tabs>
+
+You can change any of this later with `omem config set` — see [the LLM provider how-to](/how-to/05-llm-provider/).
+
+## Granting macOS access
+
+This is the one step worth understanding, because macOS permissions behave in a way that trips people up.
+
+To read your **mail** — and, on **macOS 26+**, your **calendar** — OMem needs **Full Disk Access (FDA)**. macOS **never** prompts for FDA automatically; you grant it by hand. The wizard points you there when you enable those kinds, or trigger it anytime:
+
+```bash
+omem setup --grant-tcc
+```
+
+This opens **System Settings → Privacy & Security → Full Disk Access** and reveals the `omem` binary in Finder so you can drag it in (or toggle it on).
+
+What each kind needs:
+
+- **Mail** — Full Disk Access (the manual one above), on every macOS version.
+- **Calendar** — a normal **Calendars** prompt on older macOS, but **Full Disk Access on macOS 26+** (the Calendar database moved into a sandboxed container, so it's now gated like mail). See [ingest calendar](/how-to/03-ingest-calendar/) for the version detail.
+- **Files / Loop** — prompt normally (or need no special permission).
+
+<Aside type="caution" title="Why mail/calendar can 'work' in the terminal but fail on a schedule">
+When you run `omem` yourself in Terminal, it can sometimes read mail/calendar because it inherits Terminal's own permissions. But the **scheduled** job (launchd) runs as `omem` directly — with no Terminal to inherit from — so if `omem` itself isn't in Full Disk Access, scheduled ingest of FDA-gated kinds silently fails. **The fix is always the same: add the `omem` binary to Full Disk Access**, not Terminal.
+</Aside>
+
+<details>
+<summary>Running just one step again</summary>
+
+You don't have to redo the whole wizard to change one thing. `omem setup --kind mail` reruns only the mail step; `omem setup --llm` jumps to the provider step; `omem setup --browser` redoes the Loop sign-in. Handy after you add a new mail account or switch LLM providers.
+
+</details>
+
+## What's next
+
+Configured — now see it work.
+
+- **[Run your first query](/getting-started/03-first-query/)** — ingest a little data and get your first hit.
+- Want the full field-by-field reference? **[Configuration schema](/reference/02-config-schema/)**.

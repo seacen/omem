@@ -1,0 +1,95 @@
+---
+title: 接上各种 agent
+description: 把 OMem 接进你的 agent。带 skill 机制的 agent(Claude Code、Codex、Claw Hub)用 OMem 的 skill;没有的用 omem mcp server 兜底。每一种的配置都在这。
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+**正在把 OMem 接到某个具体的 agent,想要一步不差的步骤?** 看这一页。想先看个全貌,见 [让 AI agent 用上你的记忆](/zh-cn/getting-started/04-connect-an-agent/);这一页是动手接线时查的。
+
+## skill 优先,MCP 兜底
+
+OMem 只有一个 **skill**——一层小小的、与 agent 无关的封装,它教 agent 什么时候该去查你的工作记忆、又怎么把结果一路读开。agent 接上它有两条路:
+
+- **你的 agent 要是有 skill / plugin 机制,就用 skill。** 这是更完整的一种集成:skill 带着触发判断(什么时候自动查)和那套渐进式披露的流程,不只是几个裸工具。**Claude Code、Codex、Claw Hub** 都走这条路。
+- **你的 agent 要是只会说 MCP,就用 `omem mcp` server。** 同样这六个工具,只是包成一个通用的 MCP 端点——给那些没有原生 skill 机制的 agent(Cursor、Cline、Continue、Zed 等等)兜底。
+
+两条路开出的是**同样这六个只读能力**;区别只在于:走 skill,agent 还顺带拿到了 skill 的触发判断和往下钻的引导。
+
+## 有 skill 的 agent
+
+### Claude Code
+
+`omem` CLI 装好、也配好之后,加上 marketplace,再装 skill:
+
+```
+/plugin marketplace add seacen/omem
+/plugin install omem@seacen-marketplace
+```
+
+从此 agent 一碰到带工作味的问题,就会自己去调 OMem。想验证,问它一句*"帮我看看 OMem 健康状况"*——它应该会去跑 `omem doctor`。
+
+### Codex
+
+OMem 带了一份 Codex plugin 清单,装的是同一个 skill。这份 bundle 会把 `omem` 这个 MCP 入口注册上,Codex 就能自动接线;按 Codex 自己的 plugin 说明装就行,前提是 `omem` CLI 已经在你的 `PATH` 上。
+
+### Claw Hub
+
+OMem 带了一份 Claw Hub 清单,带的是同一个 skill 能力。像装 Claw Hub 上任何别的 plugin 那样把它装上——同样,得先把 `omem` CLI 装好。
+
+<Aside type="note" title="一个 skill,几份清单">
+Claude Code、Codex、Claw Hub 各拿到一份薄薄的清单,都指向*同一份* skill 内容——一样的触发、一样的六个工具。你配的不是三个不同的东西;你是从三道前门,装同一个 skill。
+</Aside>
+
+## 没有 skill 的 agent——MCP server
+
+`omem mcp` 起一个 stdio 的 MCP server,把这六个工具开放给任何 MCP 客户端。一条配置就接上了:
+
+**Cursor**——`.cursor/mcp.json`(或者 Settings → MCP Servers):
+```json
+{
+  "mcpServers": {
+    "omem": { "command": "omem", "args": ["mcp"] }
+  }
+}
+```
+
+**Cline、Continue、Zed**——做法一样(`command: "omem"`、`args: ["mcp"]`),填进那个 agent 的 MCP 配置文件里。
+
+<Aside type="tip" title="你的 agent 也有 skill 时,什么情况才用 MCP">
+你的 agent 要是支持 skill,那就优先用 skill——触发判断和往下钻的引导都是白送的。只有在 agent 压根没有 skill 机制、或者你就是想自己把这些工具接上的时候,才去碰那条裸 MCP 配置。
+</Aside>
+
+## 那六个工具(skill = MCP)
+
+两边开出的就是这几个,不多不少:
+
+| 工具 | 干什么 |
+|---|---|
+| `query` | 在你所有建好索引的工作里做排序搜索 |
+| `page_get` | 完整的 wiki 页(frontmatter + 正文) |
+| `raw_get_path` | 原始源文件的路径(file 类) |
+| `raw_get_parsed_path` | 解析后源文的路径(带版本历史) |
+| `wiki_ls` | 按类别 / source / 账号 / 日期翻页面 |
+| `doctor` | OMem 健康检查 |
+
+<Aside type="note" title="生来就是只读的">
+setup、ingest、重建索引、purge、改配置——这些一概不开放给 agent,两条路都不开。它们都该是你慎重去做的、属于人的动作,所以哪怕接上一个 agent,它也绝改不动配置、删不掉你的数据。见 [从 agent 查询](/zh-cn/concepts/07-querying-from-an-agent/)。
+</Aside>
+
+## 前提(所有路都一样)
+
+每一种集成都得先把 `omem` CLI 装好、配好:
+
+```bash
+brew install seacen/omem/omem
+omem setup
+omem ingest
+```
+
+见 [安装](/zh-cn/getting-started/01-install/) 和 [setup](/zh-cn/getting-started/02-setup-wizard/)。
+
+## 接下来
+
+- **[从 agent 查询](/zh-cn/concepts/07-querying-from-an-agent/)**——一个守规矩的 agent 怎么用这几个工具。
+- **[定时摄入](/zh-cn/how-to/08-launchd-schedule/)**——让记忆自己保持新鲜。

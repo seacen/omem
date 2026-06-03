@@ -1,0 +1,82 @@
+---
+title: Schedule automatic ingest
+description: Install a launchd job so OMem ingests on a timer, keeping your wiki fresh without you running anything. Configure the interval, check status, and uninstall.
+---
+
+import CommandExplorer from '../../../components/CommandExplorer.tsx';
+import { Aside } from '@astrojs/starlight/components';
+
+**Read this if** you want OMem to keep itself up to date — ingesting new mail, files, and events on a schedule instead of you running `omem ingest` by hand. OMem uses macOS's own `launchd` timer; there's no background daemon to manage.
+
+## Install the schedule
+
+You already chose an interval during [setup](/getting-started/02-setup-wizard/), so just run:
+
+```bash
+omem install
+```
+
+This reads the interval from your config and writes a launchd job that runs `omem ingest` on that schedule. Because [re-runs are cheap](/concepts/04-ingest-lifecycle/#why-re-runs-are-cheap-content-addressing--caching) (OMem only touches what changed), a frequent interval is fine.
+
+To use a different interval than what's in your config — or if you skipped that step — pass `--schedule` (it overrides the config value just for this install):
+
+```bash
+omem install --schedule 15m     # 3m, 15m, 1h, … — overrides config
+```
+
+<Aside type="note" title="It's a short-lived job, not a daemon">
+There's no always-running process. `launchd` wakes a brief `omem ingest`, it does its work, and it exits. Nothing sits resident in memory between runs — that's [design principle P1](/concepts/06-design-principles/), and it's why OMem is "zero ops."
+</Aside>
+
+## Check it's healthy
+
+```bash
+omem install status
+```
+
+<CommandExplorer client:load sessions={[{
+  command: 'omem install status',
+  output: [
+    'omem install status  (2026-06-02T14:35:00)',
+    '────────────────────────────────────────────────────────────',
+    'launchd plist',
+    '  ✓ ~/Library/LaunchAgents/com.omem.ingest.plist',
+    '    program        : /usr/local/bin/omem',
+    '    StartInterval  : 900s',
+    '    WatchPaths     : 0',
+    '  ✓ launchctl loaded  (state: waiting, pid: -)',
+    '    last_exit_code : 0',
+    '    last_run_at    : 2026-06-02 14:30',
+    '────────────────────────────────────────────────────────────',
+    'ingest_events freshness',
+    '  events last 24h: 312',
+    '  last_event_ts  : 2026-06-02 14:30',
+    '────────────────────────────────────────────────────────────',
+    'verdict: ✓ OK',
+  ],
+}]} />
+
+This command has its own status codes (0 = healthy, 1 = not installed, 2 = not loaded, 3 = installed but the last run failed or nothing ran in 24h) — see [exit codes](/reference/04-exit-codes/#omem-install-status-is-the-exception). It's a one-line health probe you can poll from a monitoring script.
+
+## Uninstall
+
+```bash
+omem install --uninstall
+```
+
+Removes the launchd job. Your wiki and data are untouched — only the schedule stops.
+
+## Two things worth knowing
+
+**It uses the globally-installed `omem`.** The scheduled job must point at the same `omem` binary you grant Full Disk Access to — the one on your `PATH` (from `brew` or the curl install), not a development copy. This keeps the macOS permission identity consistent so [scheduled mail ingest doesn't silently fail](/getting-started/02-setup-wizard/#granting-macos-access).
+
+**File-change triggering is opt-in.** By default the job runs purely on the timer. You *can* add `--watch-roots` to also trigger when files in your roots change, but it's off by default: ingest is a multi-minute batch, not a real-time sync, so the timer is the recommended pattern.
+
+```bash
+omem install --watch-roots   # also trigger on file changes
+```
+
+## What's next
+
+- **[Observe ingest](/how-to/11-observe-ingest/)** — watch what the scheduled runs are doing.
+- **[The ingest lifecycle](/concepts/04-ingest-lifecycle/)** — why frequent runs stay cheap.

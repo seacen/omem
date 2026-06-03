@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  OMem · primary logo, hard-coded paper #F5F1E8 for use on dark backgrounds.
+  Use when the host can't respect prefers-color-scheme: GitHub README dark theme,
+  dark email signatures, dark PDFs, dark social cards, etc.
+  For sites where you fully control CSS, prefer logo.svg + parent `color`.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="OMem Ex Officio Memoria seal — dark variant">
+  <rect x="4" y="4" width="92" height="92" rx="3" fill="none" stroke="#F5F1E8" stroke-width="1.5"/>
+  <rect x="8.5" y="8.5" width="83" height="83" rx="2" fill="none" stroke="#F5F1E8" stroke-width="0.7"/>
+  <text x="50" y="22" font-family="'Cormorant Garamond', 'EB Garamond', Garamond, serif" font-weight="500" font-size="6.5" fill="#F5F1E8" text-anchor="middle" letter-spacing="2">EX OFFICIO</text>
+  <line x1="42" y1="27" x2="58" y2="27" stroke="#F5F1E8" stroke-width="0.4"/>
+  <text x="50" y="60" font-family="'EB Garamond', Garamond, serif" font-style="italic" font-weight="500" font-size="36" fill="#F5F1E8" text-anchor="middle">OM</text>
+  <line x1="20" y1="74" x2="80" y2="74" stroke="#F5F1E8" stroke-width="0.7"/>
+  <text x="50" y="84" font-family="'Cormorant Garamond', 'EB Garamond', Garamond, serif" font-style="italic" font-weight="400" font-size="5.5" fill="#F5F1E8" text-anchor="middle" letter-spacing="1.8">MEMORIA</text>
+</svg>

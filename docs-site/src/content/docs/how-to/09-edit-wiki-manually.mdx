@@ -1,0 +1,52 @@
+---
+title: Edit the wiki by hand
+description: Your wiki is plain Markdown files you own. Read, grep, edit, and version-control them directly — open in Obsidian or any editor — and understand when a manual edit survives re-ingest.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+**Read this if** you want to treat your OMem wiki as what it is — a folder of plain Markdown files you fully control. You can read them, `grep` them, edit a page, or open the whole vault in Obsidian. This page also answers the question that matters most: **does a hand edit survive the next ingest?**
+
+## It's just Markdown on your disk
+
+Your wiki lives at `~/omem/wiki` by default (wherever you set `data.wiki_path`). Inside is one `.md` file per page, organized by kind and account (e.g. `wiki/mail/<account>/…`), each with YAML frontmatter and a Markdown body. Nothing proprietary — open it in Finder, a text editor, `grep`, or point Obsidian at the folder.
+
+```bash
+grep -ri "margin target" ~/omem/wiki    # search the raw files
+open ~/omem/wiki                          # browse in Finder
+```
+
+This is [design principle P3](/concepts/06-design-principles/): the wiki is the truth, not a hidden index. You can read exactly what your agent reads.
+
+## Does a hand edit survive re-ingest?
+
+**Yes — as long as the source hasn't changed.** Here's the rule, precisely:
+
+- OMem only rewrites a page's body when the **source content changes**. Each item is fingerprinted; if the bytes are the same, the curation cache hits and **OMem does not touch the wiki body**. Your edit stays.
+- If you edit the *source* (the original file, the email) so its fingerprint changes, the next ingest re-curates that page and **your manual edit to the body is replaced** by a fresh curation.
+
+So hand-editing is safe and durable for pages whose source is stable — fix a summary, add a note, correct a name, and it persists run after run. Just know that editing a page whose underlying file you *also* keep changing is fighting the pipeline.
+
+<Aside type="tip" title="A good mental model">
+Edit the wiki to *refine what OMem produced* (tidy a page, add context). If you find yourself re-editing the same page after every ingest, that page's source is changing — fix it at the source, or accept that the curation will refresh.
+</Aside>
+
+## Version-control it
+
+Because it's plain files, the whole vault is git-friendly:
+
+```bash
+cd ~/omem/wiki
+git init && git add -A && git commit -m "snapshot"
+```
+
+Now every ingest's changes show up as a diff you can review, and you have history. (Point `data.wiki_path` at a folder inside an existing repo if you prefer.)
+
+## Use it as an Obsidian vault
+
+Set the wiki path to an Obsidian vault (or open the default folder as one) and you get backlinks, graph view, and search over your auto-generated work memory — edited by hand where you want, regenerated where you don't.
+
+## What's next
+
+- **[Back up and migrate](/how-to/10-backup-and-migrate/)** — move the vault, keep the archive.
+- **[Design principles → P3](/concepts/06-design-principles/)** — why the wiki is the source of truth.

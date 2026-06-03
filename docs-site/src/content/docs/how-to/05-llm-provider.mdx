@@ -1,0 +1,84 @@
+---
+title: Configure the LLM provider
+description: Choose and configure which model curates your wiki and describes images — a Claude or ChatGPT subscription, the Anthropic API, or any OpenAI-compatible endpoint including a local model.
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+**Read this if** you want to change which model OMem uses, switch from a subscription to an API key, or point OMem at a local model. OMem doesn't ship a model — you bring your own — and the **curator** (text → wiki page) and **VLM** (image → description) are configured independently.
+
+## The four providers
+
+<Tabs>
+  <TabItem label="Claude subscription">
+
+  **`anthropic-oauth`** (the default) — your Claude Pro / Max subscription. No API key. Set it up through the wizard:
+
+  ```bash
+  omem setup --llm
+  ```
+
+  </TabItem>
+  <TabItem label="Anthropic API">
+
+  **`anthropic-api`** — billed per token. Store the key in an env var or the Keychain (never in the config file):
+
+  ```bash
+  omem config set llm.curator.provider anthropic-api
+  omem config set llm.curator.model claude-sonnet-4-6
+  omem config set llm.curator.api_key_env ANTHROPIC_API_KEY
+  ```
+
+  </TabItem>
+  <TabItem label="OpenAI-compatible">
+
+  **`openai-compat`** — OpenAI, a hosted gateway, or a **local** server. The escape hatch:
+
+  ```bash
+  omem config set llm.curator.provider openai-compat
+  omem config set llm.curator.base_url http://localhost:11434/v1
+  omem config set llm.curator.model your-model-name
+  omem config set llm.curator.api_key_env YOUR_KEY_ENV
+  ```
+
+  </TabItem>
+  <TabItem label="ChatGPT subscription">
+
+  **`openai-chatgpt-oauth`** — your ChatGPT Plus / Pro subscription. Like the Claude option, the wizard handles sign-in:
+
+  ```bash
+  omem setup --llm
+  ```
+
+  </TabItem>
+</Tabs>
+
+## Curator and VLM are separate
+
+You can use a strong text model for curation and a cheaper (or different-vendor) vision model for images — they're independent under `llm.curator.*` and `llm.vlm.*`:
+
+```bash
+omem config set llm.vlm.provider openai-compat
+omem config set llm.vlm.model qwen-vl-max
+```
+
+<Aside type="caution" title="Keys never go in the file">
+Use `api_key_env` (an environment variable name) or `api_key_keychain` (a macOS Keychain account; service `omem-llm`). The keychain wins if both are set. The two OAuth providers need no key at all.
+</Aside>
+
+## Running a local model
+
+Set `openai-compat` and point `base_url` at your local server (Ollama, vLLM, LM Studio, …). It works today, with one honest caveat: **quality depends on the model**. OMem's "good by default" promise is calibrated to capable cloud models; a small local model will curate, but with lower fidelity. Fully-offline, work-grade quality is a v1.5 goal.
+
+## Verify
+
+```bash
+omem doctor
+```
+
+The `llm endpoint` check confirms your provider is reachable and configured. See the full field list in [the config schema](/reference/02-config-schema/#llm).
+
+## What's next
+
+- **[Query and search](/how-to/06-query-and-search/)** — once pages are curated, find them.
+- **[Configuration schema → llm](/reference/02-config-schema/#llm)** — every provider field.

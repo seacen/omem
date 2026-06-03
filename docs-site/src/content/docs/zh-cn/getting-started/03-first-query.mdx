@@ -1,0 +1,101 @@
+---
+title: 跑你的第一次查询
+description: 摄入一点你的工作、跑 omem query、读懂你的第一个结果。看明白输出之后,再从一句话摘要一路钻到完整页面、再到原始文件。
+---
+
+import CommandExplorer from '../../../../components/CommandExplorer.tsx';
+import IngestPipeline from '../../../../components/IngestPipeline.tsx';
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+跑完 [setup](/zh-cn/getting-started/02-setup-wizard/)、想看看 OMem 到底能不能真答上点什么?看这一页。读完,你就摄入了一些自己的工作,也把头一个结果捞了出来。
+
+## 第 1 步 —— 摄入
+
+对你开着的那几类,跑一遍:
+
+```bash
+omem ingest
+```
+
+它会把每个条目顺着流水线走一趟——发现、解析成 Markdown、描述里面的图片、整理成一页干净的 wiki、再建索引。**头一次跑活儿最重**(所有东西它都是第一回见);往后再跑就快了,因为 OMem 只动那些变过的。
+
+<IngestPipeline client:load lang="zh" />
+
+<Aside type="caution" title="别去碰 --now">
+有个 flag 叫 `--now`,会强制全量重扫。这儿用不上它——光一句 `omem ingest`,第一次跑就把范围内的一切都摄进来了。在一个大邮箱上,`--now` 可能引来一大堆 LLM 调用、真烧钱;为什么会这样,[生命周期那一页](/zh-cn/concepts/04-ingest-lifecycle/#--now-为什么贵) 讲了。眼下,`omem ingest` 足够了。
+</Aside>
+
+## 第 2 步 —— 查询
+
+用大白话问一个问题:
+
+```bash
+omem query "Q3 budget review"
+```
+
+你会拿到一串排好序的命中——每条都带着相关度分数、它出自哪一类工作、一个短短的 page-id,外加一句话摘要:
+
+<CommandExplorer client:load lang="zh" sessions={[{
+  command: 'omem query "Q3 budget review"',
+  output: [
+    '  [    0.910] mail     a3f9c2bd  Re: Atlas Q3 — scope sign-off',
+    '      Alice 确认了 12% 的利润率目标;scope item 3 推迟到 Q4。',
+    '  [    0.740] file     7c1e0a55  Atlas-Q3-review.pptx',
+    '      季度评审 PPT:利润率方案 A/B/C,负责人 Alice。',
+    '  [    0.680] calendar d9b4f201  Atlas Q3 review (Tue 10:00)',
+    '      参会人:Alice、Bob、Carol。附了议程 PDF。',
+  ],
+}]} />
+
+## 第 3 步 —— 读懂结果
+
+每个命中就占一行——`[score] kind page-id title`——一句话摘要缩进在它底下:
+
+- **score**(方括号里)——OMem 估摸着这条有多相关。它只是个粗排,不是定论——多扫几眼摘要,别只盯着最高那个分。
+- **kind**——`mail` / `file` / `calendar` / `loop`,让你一眼知道看的是什么。
+- **page-id**——一个短句柄(这里是 `a3f9c2bd`),拿它去跑别的命令。
+- **summary**——缩进的那一行:一句话摘要,不打开任何东西,就够你判断它相不相关。
+
+想读完整页面,把它的 id 传进去(取前 8 位以上的任意前缀都行):
+
+```bash
+omem page get a3f9c2bd
+```
+
+它会把那个 wiki 文件原样打印出来——先是 YAML frontmatter,再是整理好的正文:
+
+<CommandExplorer client:load lang="zh" sessions={[{
+  command: 'omem page get a3f9c2bd',
+  output: [
+    '---',
+    'title: Re: Atlas Q3 — scope sign-off',
+    'kind: mail',
+    'account: you@company.com',
+    'abstract: Alice 确认了 12% 的利润率目标;scope item 3 推迟到 Q4。',
+    '---',
+    '',
+    '# Re: Atlas Q3 — scope sign-off',
+    '',
+    'Alice 拍板了改后的 12% 利润率目标(从 9% 上调)。',
+    'Bob 同意。应 Carol 要求,scope item 3 顺延到 Q4。',
+  ],
+}]} />
+
+要是你想要原始文件本身(对一个 `file` 命中),`omem raw get <id>` 会把它的路径打出来。这就是那道 [渐进式披露的阶梯](/zh-cn/concepts/02-progressive-disclosure/)——先摘要、再页面、再源文件——每一级,都只在你真用得着时才往下走。
+
+<Steps>
+
+1. `omem ingest` —— 把 wiki 建起来
+
+2. `omem query "…"` —— 找到对的那一页
+
+3. `omem page get <id>` —— 把它整页读完
+
+</Steps>
+
+## 接下来
+
+你已经能在终端里查了——接下来,让你的 AI agent 自动替你查。
+
+- **[让 AI agent 用上你的记忆](/zh-cn/getting-started/04-connect-an-agent/)**——Claude Code、Cursor,等等。
+- 想要更多 `query` 过滤方式(按日期、类别、账号)?**[查询与搜索](/zh-cn/how-to/06-query-and-search/)**。

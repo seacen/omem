@@ -1,0 +1,82 @@
+---
+title: 性能调优
+description: OMem 能用、只是感觉慢的时候——慢 ingest、慢查询、占内存高——找到瓶颈，找到那一个能解决它的旋钮。LLM/VLM 并发、qmd 查询模式、OCR 内存，以及哪些根本不值得去调。
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+**如果** OMem 能用、只是感觉慢，或者你撞上了 provider 限流，又或者 ingest 占的内存比你想要的多，看这一页。每一节都是一个现象 → 对应那个能解决它的旋钮。（要看全部字段的完整参考，见 [配置 schema](/zh-cn/reference/02-config-schema/)；这一页是"我到底该改哪个"的视角。）
+
+## 先问一句：是真慢，还是只是在干活？
+
+调之前，先搞清楚时间花在哪了——[`omem ingest watch`](/zh-cn/how-to/11-observe-ingest/#实时盯一次运行) 会把每个阶段跑完一个亮一个。一个看起来卡住了的任务，通常无非是这么几种：qmd 模型在冷加载、一个大 PDF 在做 OCR、或者一次慢的 Loop 拉取——都在意料之中，没一个值得"调"。要调，也只调一种成片出现的慢，别为偶发的一次较劲。
+
+## 撞上 provider 限流
+
+**现象：** ingest 时报 `429 rate limit`；条目失败、重试。
+
+**旋钮：** 调低全局 LLM 上限——真正给 API 调用踩刹车的就是它：
+
+```bash
+omem config set llm.global_concurrency 2     # 默认 4；还限流就再往下调
+omem config set parser.vlm_global_concurrency 2
+```
+
+这两个是跨进程的天花板，管的是同时进行的 LLM / 视觉调用。各 kind 的 worker 池（`ingest.curate_concurrency`、`ingest.kind_concurrency`）抬高的是*并行度*，而这两个全局上限框住的才是*真正打到 provider 的调用*——所以为了限流，调低全局上限，别动那些池子。
+
+## ingest 整体感觉慢
+
+**现象：** 一整次跑下来，比你想要的久（不是某一个条目卡住）。
+
+**实际在发生什么：** 大部分时间花在 LLM 整理上，而这受 `llm.global_concurrency` 限制。如果你的 provider 扛得住，*调高*它能让 ingest 快起来：
+
+```bash
+omem config set llm.global_concurrency 16    # 前提是你的 provider 允许
+```
+
+不过记住，大多数重跑本来就很便宜——[整理缓存](/zh-cn/concepts/04-ingest-lifecycle/#重跑为什么便宜内容寻址加缓存) 会把没变过的条目整个跳过。如果一次重跑很慢，看看 `omem ingest history`：一堆 `recur` 或 `ingest` 说明在干真活；一堆 `cache` 说明它已经很快了，墙上时钟那点时间，只是绕不开的新条目而已。
+
+## 查询感觉慢
+
+**现象：** `omem query` 要好几秒，不是几毫秒。
+
+默认的 `fts5` 索引大约 50 ms 就答上来——要是*它*都慢，那就是别的地方出问题了（查 `omem doctor`）。慢查询几乎一定意味着你打开了 **`qmd`**，它的几种模式是拿速度换精度：
+
+| 模式 | 速度 | 什么时候用 |
+|---|---|---|
+| `bm25` | 最快 | 你要的就是接近关键词那样的速度 |
+| `no-rerank` | 快（热起来后） | **日常首选**——有语义召回，又没有 reranker 那点延迟 |
+| `full` | 最慢 | 精度拉满，而你扛得住 reranker |
+
+```bash
+omem config set plugins.qmd.query_mode no-rerank
+```
+
+打开 qmd 后头一次查询*总是*慢（它要下载 ~2.2 GB 的模型，就这一次）。这不是调优问题——是一次性的开销。见 [检索](/zh-cn/concepts/08-retrieval/)。
+
+## ingest 占内存太多
+
+**现象：** 碰到图片多的文档，内存往上爬。
+
+**旋钮：** OCR 跑在一个子进程里，每 N 张图片就重启一次，好把内存框住。默认值（20）已经偏保守，你很少需要动它，但如果内存还在爬：
+
+```bash
+omem config set parser.ocr_subprocess_batch 10    # 重启得更勤 = 峰值更低
+```
+
+另外还有个每篇文档的图片上限（`parser.max_images_per_doc`，默认 200），它宁可把长尾跳过，也不让内存膨胀——任何被跳过的都会记进日志，绝不闷声不响。
+
+<Aside type="tip" title="调试时用串行模式">
+如果你正在追一个问题、想要可读、确定的行为，把一切都设成串行：`omem ingest -c 1`。一次一个条目，没有并发——慢一些，但每一行日志都按顺序来。
+</Aside>
+
+## 多半不值得调的那些
+
+- **worker 池**（`curate_concurrency` / `kind_concurrency`）——反正全局上限框住了真实成本；抬高池子很少有用，还可能让限流更糟。
+- **fts5**——它本来就快，没什么可调的。质量来自 `qmd`，不来自调 fts5。
+- **首次跑的开销**——头一次 ingest 和头一次 qmd 查询，天生就慢（把所有东西看一遍、把模型下一次）。那不是稳态性能。
+
+## 接下来
+
+- **[配置 schema](/zh-cn/reference/02-config-schema/#concurrency--同时跑多少东西)**——每一个并发和超时字段。
+- **[观察 ingest](/zh-cn/how-to/11-observe-ingest/)**——在你动手调之前，先找出是哪个阶段慢。

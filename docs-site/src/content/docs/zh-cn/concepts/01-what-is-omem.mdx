@@ -1,0 +1,75 @@
+---
+title: OMem 是什么？
+description: OMem 把 AI agent 一直缺的那块工作上下文补给它——一个本地优先、与 agent 无关、能自动摄入你真实办公工作的记忆层。它跟 PKM 工具、企业搜索、对话记忆 SDK 究竟有什么不同。
+---
+
+import PositioningMatrix from '../../../../components/PositioningMatrix.tsx';
+import { Aside } from '@astrojs/starlight/components';
+
+**只要你拿 AI agent 干过真活**——无论是 Claude Code、Cursor、Codex、OpenClaw 还是 Hermes——多半都撞过同一堵墙：它很聪明，却对你每天到底在忙什么一无所知。这一页就讲清楚三件事：OMem 是什么、它刻意**不去做**什么，以及在那一堆看上去差不多的工具里，它到底站在哪儿。
+
+## 看不见你工作的 agent
+
+设想一位顾问，就叫她 Alice，在一个客户项目（客户是 Acme Corp）上扎了整整六个月。这半年里堆下来的东西：400 封邮件、三版合同草稿、十几份 PPT、几个 Excel 模型、二十多份会议纪要、客户陆续发来的一摞 PDF，还有某条共享笔记里随手记的一句——*"Bob 提议把 scope item 3 砍掉，Carol 不同意，最后说好下季度再议。"*
+
+转眼到了下个季度。Alice 打开她的 AI agent，敲下：*"帮我起草 Acme 第三季度复盘的开场。上季度我们说好要再议的未决事项有哪些？"*
+
+agent 一头雾水，根本不知道她在说什么。于是它交回一份排版精致、却通用到没有任何用处的复盘模板——文笔挑不出毛病，但跟真实情况毫无关系。Alice 只好自己动手，花二十分钟把两封邮件、一份纪要、一页 PPT 一段段贴进去喂给它——可到这一步，她其实早就能自己把开场写完了。
+
+agent 这次掉链子，不是因为它笨，**而是因为它看不见你身边正在发生的工作。**
+
+## OMem 是什么
+
+OMem 是装在你电脑上的一层软件，只专心做一件事：**自动且持续地，把散落在你电脑各处的真实工作——邮件、日历、会议纪要、各种文件（Office 格式、PDF、图片、HTML、Markdown）——整理成一份任何 AI agent 都能查的 wiki。**
+
+为什么偏偏是现在才重要？因为今年冒出了一批**真能干活**的 agent（Claude Code、Codex、OpenClaw、Hermes）——它们能做 PPT、能搭 Excel 模型，甚至能开着浏览器去内部系统里抓数据。卡住它们的，从来不是能力，而是看不见你的工作上下文。**"能干活的 agent" 和 "你真实的工作上下文"，过去一直是两条没接上的线。OMem 做的，就是把它们接起来。**
+
+补上了上下文之后，刚才只会给 Alice 套模板的那个 agent，现在能这么答：*"上季度你和 Bob 约好，因为 Carol 有异议，scope item 3 留到这个季度再议——开场草稿在这里，我已经把这一项放在待讨论清单的第一条"*，然后顺手就把整份 PPT 做了出来。
+
+<Aside type="note" title="整理出来的东西存在哪">
+这份 wiki 就是一堆纯 Markdown 文件，放在**你自己指定的目录**里——默认是 `~/omem/wiki/`，你也可以让它落在某个 Obsidian vault 里，或者一个 git 仓库里。它不在任何厂商的云上，更不是某种你打不开的 SQLite 二进制黑盒。你完全可以用 Finder 翻它、用 `grep` 搜它、随手改一页，或者纳入版本管理。
+</Aside>
+
+## OMem 不是什么
+
+OMem 常被误会成它其实并不是的那几类东西。想最快理解它，不妨反过来看——**市面上没有任何一款现成工具，正好站在 OMem 这个位置上。** 点下面任意一行，看它到底有什么、缺什么：
+
+<PositioningMatrix client:load lang="zh" />
+
+撑起这个位置的，是三条属性，而 OMem 是唯一三条全占的：
+
+1. **本地优先** —— 你的数据始终留在你电脑上。不进厂商云、不用申请 Graph API 管理员授权、不必走 IT 工单。
+2. **自动摄入真实工作** —— 直接从工作本来所在的地方摄入，而不是等你再手敲一遍。
+3. **与 agent 无关** —— 同一份记忆，今天喂 Claude Code，明年换了别的 agent 照样能喂。
+
+<details>
+<summary>逐个对比，展开看</summary>
+
+- **对话记忆 SDK（mem0、Letta、Zep）** 记的是你跟 agent **说过**的话。它们从不读你的邮箱，也不会打开你的 PDF。那是给开发对话类应用的程序员用的底层设施，而不是给一个知识工作者、把上下文交到手边 agent 手里的成品。
+- **OpenViking** 是技术维度上离得最近的邻居——字节跳动开源的 agent context database。说句公道话：它**确实**本地优先（可以用 Docker / pip / Ollama 自托管），也**确实**与 agent 无关（任何 MCP 客户端都能接）。OMem 的 L0–L3 渐进式披露，灵感正来自它的分层加载。它唯一缺的那一项，恰恰是最要命的：内容得你用程序一条条喂进去（`ov add-resource …`），它不会主动去摄入你电脑上本就摆在那儿的真实工作——你的邮箱、同步下来的 OneDrive 文件夹、Downloads 里的那些 PDF。这块空白，正是 OMem 来填的：它能从你真实的办公工作里，**自动把这套结构填满**。
+- **企业搜索（Glean、Coveo、Microsoft 365 Copilot）** 是面向企业 IT 的正经产品：把公司数据摄入厂商云、动辄数周的 onboarding、每个席位每月 30–40 美元、还要拿到 Graph API 租户的管理员授权。两个硬伤。一是它的索引只喂*它自己*的助手——Glean 的索引喂不到你的 Claude Code，Copilot 的也喂不到你的 Cursor。二是哪怕是能拿到你 M365 数据的 Copilot，能力上限也就是"辅助"（替你总结邮件、调调配色），它做不出那种能把整份 PPT 端到端做完的、真干活的 agent。更别提，要是你公司 IT 压根没采购，你连门都进不去。
+- **本地 PKM（Obsidian、Logseq、Notion AI）** 都是好工具，但它们记得住的，只有你**亲手**录进去的东西。它们不会自动摄入你天天泡着的 Outlook 收件箱，也不会管 Downloads 里那堆 PDF。于是结局往往是：真实的工作还原封不动地躺在原地，而 PKM 里塞满了"打算抽空整理一下"的念头。
+- **GBrain** 是理念上离得最近的一个——markdown 即记忆、与 agent 无关。但它走的是 bring-your-own-markdown 的路子：笔记得你自己写。它不会自动摄入你真实的办公数据。（目标用户不同，跟 OMem 各走各路，井水不犯河水。）
+
+</details>
+
+## 一句话讲清 OMem 怎么运转
+
+装好之后，跑一句 `omem setup`，选好要摄入哪些东西、用哪个 LLM provider 来做整理，然后就可以彻底放手不管了。从此 OMem 每隔几分钟就以一个短命进程的形式跑一次——没有常驻后台 daemon，靠的只是系统定时器。每跑一次：它会找出新增或改动过的条目，解析成 Markdown，用视觉模型把里面嵌的图片描述出来，整理成干净的 wiki 页，再建好索引。而你的 agent，通过一个 CLI 就能查到这份成果。
+
+大致轮廓就是这样。本章接下来会一层层把它拆开讲：
+
+- **[渐进式披露](/zh-cn/concepts/02-progressive-disclosure/)** —— 为什么 agent 一上来只拿一句话摘要，要看全文时才去取。
+- **[Kind 与 Source](/zh-cn/concepts/03-kinds-and-sources/)** —— OMem 收的四类工作（file、mail、calendar、loop）分别从哪来。
+- **[摄入生命周期](/zh-cn/concepts/04-ingest-lifecycle/)** —— 一个条目是怎么一步步变成一页 wiki 的。
+- **[插件架构](/zh-cn/concepts/05-plugin-architecture/)** —— 那些让 OMem 不把你锁死的扩展点。
+- **[设计原则](/zh-cn/concepts/06-design-principles/)** —— 这一整套东西赖以成立的几个核心想法，包括*为什么说 wiki 才是真相，索引只是一种看法*。
+- **[从 agent 查询](/zh-cn/concepts/07-querying-from-an-agent/)** —— 你的 agent 究竟是怎么够到这一切的。
+
+<Aside type="tip" title="第一次用 OMem？">
+要是你只想先把它跑起来，那就直接去 [安装](/zh-cn/getting-started/01-install/)，等哪天想搞明白*为什么*是这个设计，再回来看也不迟。
+</Aside>
+
+## 现在就能用
+
+OMem **现在支持 macOS，Windows 版正在路上。** 个人使用免费。如果你想在团队里铺开，或者把它嵌进公司的工作流，[联系我们](/zh-cn/faq/#许可与商用)——这值得我们好好聊一次。

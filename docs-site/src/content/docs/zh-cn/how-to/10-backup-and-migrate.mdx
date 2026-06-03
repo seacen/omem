@@ -1,0 +1,58 @@
+---
+title: 备份与迁移
+description: 用 omem wiki move 把 wiki vault 挪到新地方，搞清楚哪些该备份（wiki、raw 归档、配置），以及万一丢了点什么，OMem 怎么从这些东西里重建回来。
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+**适合这样的你**：想给 wiki 换个地方、给 OMem 做个备份，或者整个搬到一台新机器上。一句话总结：你的数据就是放在几个明确位置的普通文件，剩下的 OMem 都能从它们重建出来。
+
+## OMem 都存了什么，存在哪
+
+| 位置 | 是什么 | 要备份吗？ |
+|---|---|---|
+| `~/omem/wiki`（`data.wiki_path`） | 整理好的 Markdown 页面——你能读的那份记忆。 | **要**——这就是成品。 |
+| `~/.local/share/omem/raw`（在 `data.root` 下） | 不可变的源解析归档（按内容寻址）。 | **能备就备**——有它在，wiki 不用重新解析就能重建。 |
+| `~/.config/omem/config.yaml` | 你的配置。 | **要**——文件小，还省得重跑一遍 setup。 |
+| `~/.local/share/omem/.state` + 索引 | cursor 和搜索索引。 | 不用——这些会自己重建。 |
+
+这种分层是有意为之的（[P3](/zh-cn/concepts/06-design-principles/)）：删掉索引，它从 wiki 重建；删掉 wiki，它从 `raw/` 重建；而 `raw/` 永远不删。所以，备份了 `wiki/` + `raw/` + `config.yaml`，就是一份完整的备份。
+
+## 挪走 vault
+
+想给 wiki 换地方——挪到同步文件夹里、放进 Obsidian vault、搬去任何地方——请用 `omem wiki move`，**别**自己 `mv`、也别去手改配置。它会把文件挪过去，*同时*把索引和所有 qmd collection 都重新指向新位置：
+
+```bash
+omem wiki move ~/Documents/MyVault/omem --dry-run   # 先预览
+omem wiki move ~/Documents/MyVault/omem             # 真挪
+```
+
+<Aside type="caution" title="别去手改 data.wiki_path">
+手改 `data.wiki_path` 会把旧 wiki 晾在那儿没人读——OMem 跑去新路径找，结果一无所获。`omem wiki move` 才是稳妥的路子。`data.root` 同理：手改它会让整个 cache 成了孤儿。参见 [配置里的危险提示](/zh-cn/reference/02-config-schema/)。
+</Aside>
+
+## 把 wiki 放进同步文件夹
+
+一种常见做法，是把 vault 指向一个会同步的位置，这样它既被备份了，又能在多台设备间用上：
+
+```bash
+omem wiki move ~/Library/CloudStorage/OneDrive-Personal/omem-wiki
+```
+
+这下你那份能读的记忆，就搭上了你本来就有的云备份。（OMem 的*摄入*还是只在那台有源数据的 Mac 上本地跑。）
+
+## 搬到一台新机器
+
+1. 在新 Mac 上装好 OMem（[安装](/zh-cn/getting-started/01-install/)）。
+2. 把 `config.yaml`、`wiki/` 文件夹，还有（能拷就拷）`raw/` 归档拷过去。
+3. 跑 `omem doctor` 查一遍一致性，再跑 `omem index rebuild` 从 wiki 重建搜索索引。
+4. 重新授予 macOS 权限（`omem setup --grant-tcc`）——权限是一台机器一套的。
+
+<Aside type="tip" title="你的记忆是带得走的">
+正因为一切都是放在有明文记载的位置的、能打开的文件，你永远不会被锁死。哪怕哪天你彻底不用 OMem 了，你那个 `wiki/` 文件夹照样是一份能读、能 grep、能纳入版本管理的工作上下文归档——它是你的。
+</Aside>
+
+## 接下来
+
+- **[手动改 wiki](/zh-cn/how-to/09-edit-wiki-manually/)**——这个 vault 归你读、归你改。
+- **[配置 schema → data](/zh-cn/reference/02-config-schema/)**——那几个路径字段。

@@ -1,0 +1,75 @@
+---
+title: 查询与搜索
+description: 用 omem query 搜你的 wiki——按类别、source、账号、时间过滤;用 page get 和 raw get 把结果读开;再用 wiki ls 按元数据翻页面。
+---
+
+import CommandExplorer from '../../../../components/CommandExplorer.tsx';
+import { Aside } from '@astrojs/starlight/components';
+
+**想让搜索不只是甩一个问题进去**——按日期或类别过滤、把结果往下钻、或者按元数据翻你的 wiki?看这一页。(至于 *agent* 该怎么查,见 [从 agent 查询](/zh-cn/concepts/07-querying-from-an-agent/)。)
+
+## 最基本的查询
+
+```bash
+omem query "Q3 budget review"
+```
+
+返回的是排好序的命中——每条带分数、类别、page-id 和一句话摘要。这个分数只是个大致排名;**摘要要读,别光信排头那条。**
+
+## 给搜索加过滤
+
+过滤条件能叠,叠起来就能精确收窄:
+
+| Flag | 例子 | 作用 |
+|---|---|---|
+| `--limit / -n` | `-n 20` | 多捞点候选(适合大致扫一遍)。 |
+| `--kind` | `--kind mail` | 只看某一类。 |
+| `--source` | `--source local-files` | 只看某一个后端。 |
+| `--account` | `--account you@co.com` | 只看某一个邮件/日历账号。 |
+| `--since` | `--since 2w_ago` | 在某个时间点之后改过的。 |
+| `--format` | `--format json` | 机器可读的输出。 |
+
+```bash
+omem query "contract terms" --kind mail --since 3m_ago --limit 20
+```
+
+`--since` 卡的是**源本身**的修改时间(文件的 mtime、邮件的 Date),不是 OMem 摄入它的时间。它认 `Nd_ago` / `Nw_ago` / `Nm_ago` / `Ny_ago`,也认一个 ISO 日期。
+
+## 把一条结果往下钻
+
+这就是那条 [渐进式披露的梯子](/zh-cn/concepts/02-progressive-disclosure/)——问题要多深,你就走多深:
+
+```bash
+omem page get a3f9c2bd              # 整理好的页(L1)
+omem raw get a3f9c2bd --parsed      # 完整的解析后源文(L2)
+omem raw get a3f9c2bd               # 原始文件的路径(L3,file 类)
+```
+
+page-id 取前 8 位以上的前缀就行。
+
+## 不搜,改成翻
+
+有时你想要的不是*排序*而是*列出*——"上个月这个账号的所有邮件"——这时用 `wiki ls`。它按元数据过滤,不打分:
+
+<CommandExplorer client:load lang="zh" sessions={[{
+  command: 'omem wiki ls --kind mail --since 1m_ago --limit 5',
+  output: [
+    'PAGE_ID   TITLE                                           UPDATED               KIND      SOURCE',
+    'a3f9c2bd  Re: Atlas Q3 — scope sign-off                   2026-06-01 09:00      mail      mail-app',
+    'c4e1882a  RFP follow-up — vendor shortlist                2026-05-28 16:20      mail      mail-app',
+    'd72b0f10  Weekly staff sync — action items                2026-05-27 10:05      mail      mail-app',
+    'e90a4c33  Re: contract draft v2 comments                  2026-05-24 11:48      mail      mail-app',
+    'f1c8b265  Q3 planning — agenda                            2026-05-20 08:30      mail      mail-app',
+  ],
+}]} />
+
+`wiki ls` 还能加 `--search <text>`,在标题/摘要上做一个朴素的子串匹配(不分大小写、不打分)——大概记得标题里有什么的时候很顺手。要模糊匹配或语义匹配,还是用 `omem query`。
+
+<Aside type="tip" title="想要最好的搜索,就把 qmd 打开">
+关键词搜索(`fts5`)只认你字面写出来的词。我们**建议你装 `qmd` 插件**:它多了向量召回、查询扩展和重排,于是能按*意思*匹配、还能跨语言——在真实工作上明显更准。见 [检索](/zh-cn/concepts/08-retrieval/) 和 [query_mode](/zh-cn/reference/02-config-schema/)。
+</Aside>
+
+## 接下来
+
+- **[从 agent 查询](/zh-cn/concepts/07-querying-from-an-agent/)**——agent 怎么重排、怎么往下钻。
+- **[CLI 命令](/zh-cn/reference/01-cli-commands/)**——每一个 query/page/raw 的 flag。

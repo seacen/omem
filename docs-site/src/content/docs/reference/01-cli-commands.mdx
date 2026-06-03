@@ -1,0 +1,317 @@
+---
+title: CLI commands
+description: The full omem command reference — every command, what each flag means and when to use it, and a clear mark on the few that cost money or change state irreversibly. The CLI is the product's interface.
+---
+
+import CommandExplorer from '../../../components/CommandExplorer.tsx';
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+**Read this if** you want to know exactly what `omem` can do from the terminal — every command, what each flag actually means, and which ones to run with care. The CLI *is* the product's interface (every agent integration is a thin wrapper over it), so this page is the contract everything else builds on.
+
+`omem --help` prints the command tree live, and `omem <command> --help` prints a command's full flags. This page explains them — what each flag is *for*, not just its name.
+
+<Aside type="note" title="Internal commands aren't listed here">
+Commands prefixed with an underscore (`_debug`, `_eval`, …) are development-only and are stripped from the released binary. They're not part of the public contract and aren't documented.
+</Aside>
+
+## Query &amp; retrieve
+
+The commands an agent uses most — and the ones you'll reach for by hand. They walk the [progressive-disclosure layers](/concepts/02-progressive-disclosure/) L0 → L3.
+
+<CommandExplorer client:load sessions={[
+  {
+    label: 'query',
+    command: 'omem query "Project Atlas Q3 scope decision" --limit 3',
+    output: [
+      '  [    0.910] mail     a3f9c2bd  Re: Atlas Q3 — scope sign-off',
+      '      Alice confirmed the 12% margin target; scope item 3 deferred to Q4.',
+      '  [    0.740] file     7c1e0a55  Atlas-Q3-review.pptx',
+      '      Quarterly review deck: margin scenarios A/B/C, owner Alice.',
+      '  [    0.680] calendar d9b4f201  Atlas Q3 review (Tue 10:00)',
+      '      Attendees: Alice, Bob, Carol. Agenda PDF attached.',
+    ],
+  },
+  {
+    label: 'page get',
+    command: 'omem page get a3f9c2bd',
+    output: [
+      '---',
+      'title: Re: Atlas Q3 — scope sign-off',
+      'kind: mail',
+      '---',
+      '',
+      '# Re: Atlas Q3 — scope sign-off',
+      '',
+      'Alice signed off the revised 12% margin target (up from 9%).',
+      'Bob agreed. Scope item 3 carried to Q4 at Carol’s request.',
+    ],
+  },
+  {
+    label: 'raw get',
+    command: 'omem raw get 7c1e0a55',
+    output: [
+      '/Users/alice/OneDrive/Acme/Atlas-Q3-review.pptx',
+    ],
+  },
+]} />
+
+### `omem query "<question>"`
+
+Searches the active index and prints hits ranked by relevance. The question is a natural-language string — the [agent reranks the results itself](/concepts/07-querying-from-an-agent/), so casting a wide net and reading abstracts beats trusting the top score.
+
+| Flag | Meaning |
+|---|---|
+| `-n`, `--limit <N>` | How many hits to return. Default `10`. Bump to `20`–`50` when you want a generous candidate pool to rerank. |
+| `--format text\|json` | Output shape. `json` (default `text`) gives a machine-readable array with a count — use it in scripts. |
+| `--since <when>` | Keep only hits modified at/after this time. See [the `--since` grammar](#--since--filtering-by-time) below. |
+| `--kind file\|mail\|calendar\|loop` | Restrict to one kind of work. |
+| `--source <name>` | Restrict to one source backend (e.g. `local-files`, `mail-app`). |
+| `--account <name>` | Restrict to one mail/calendar account. (File rows have no account, so any `--account` excludes them.) |
+| `--include-deleted` | Also return tombstoned pages — for audit or recovery. Off by default. |
+
+#### `--since` — filtering by time
+
+`--since` filters on the **source's** modification time — a file's mtime, a mail's Date, a calendar event's timestamp — *not* when OMem happened to ingest it. It accepts:
+
+- **Relative anchors:** `7d_ago`, `3w_ago`, `3m_ago`, `1y_ago` (days / weeks / months / years).
+- **ISO dates / datetimes:** `2026-01-01` or `2026-01-01T09:00:00`.
+
+So `omem query "budget" --since 2w_ago` finds budget pages whose underlying file or message changed in the last two weeks.
+
+### `omem page get <id>`
+
+Prints the curated wiki page (L1) — the human-readable summary. Takes a full 32-character page-id or any **≥8-character prefix**; `--format json` returns it structured.
+
+### `omem raw get <id>`
+
+The provenance command. By default it prints the path to the **original file** (L3) so an agent can open it directly. Two flags reach the deeper layers:
+
+| Flag | Meaning |
+|---|---|
+| `--parsed` | Print the path to the parsed Markdown (L2) — the full parser output, every table row, image descriptions inline. |
+| `--version N\|list` | With `--parsed`: `list` shows all retained parse versions; `N` selects a historical one (`0` = latest). |
+
+<Aside type="tip" title="page-id prefixes">
+A page-id is a 32-character hex string. You rarely type the whole thing — any prefix of **8 or more characters** works. OMem tells you if a prefix is ambiguous (exit code 3) or matches nothing (exit code 4); see [exit codes](/reference/04-exit-codes/).
+</Aside>
+
+## Ingest
+
+`omem ingest` with no subcommand runs the whole [pipeline](/concepts/04-ingest-lifecycle/): discover → parse → describe images → curate → wiki → index. Normally you don't run it by hand at all — the [scheduled job](/reference/02-config-schema/#schedule) does. The flags below are for the occasional manual run; the subcommands are for observing and controlling one.
+
+### Flags on a manual run
+
+| Flag | Meaning |
+|---|---|
+| `--kind <k>` / `--source <s>` | Limit the run to one kind, or override the source backend for it. |
+| `--dry-run` | Discover and classify only — no LLM calls, no file writes. Use it to preview *what would* ingest. |
+| `-q`, `--quiet` | Suppress per-item progress lines (the final per-kind summary still prints). |
+| `--verbose-phases` | The opposite: show every phase (raw → parse → vlm → curate → wiki → index) per item, for debugging where time goes. Mutually exclusive with `--quiet`. |
+| `--vlm-mode auto\|always\|never` | One-run override of image description — see [below](#--vlm-mode). |
+| `-c`, `--concurrency <N>` | One-run override of the worker pools — see [below](#-c--concurrency). |
+
+#### `--vlm-mode`
+
+A one-time override of how embedded images are handled for *this run only* (the persistent setting is [`parser.images.*`](/reference/02-config-schema/#parserimagesformat--how-images-inside-a-document-are-handled)):
+
+| Value | Effect |
+|---|---|
+| `auto` *(default)* | Describe the images the parser flagged as worth it — normal behavior. |
+| `always` | Describe every flagged image even where config would skip the format. (It still won't invent work where the parser flagged nothing.) |
+| `never` | Skip the vision model entirely — fastest, no image descriptions, no VLM cost. |
+
+Reach for `--vlm-mode never` when you want a quick text-only pass and don't care about image descriptions on this run.
+
+#### `-c`, `--concurrency`
+
+Overrides **both** ingest worker pools ([`ingest.curate_concurrency`](/reference/02-config-schema/#concurrency--how-many-things-run-at-once) and `ingest.kind_concurrency`) in one shot. The most useful value is `1` — strictly serial ingest, which makes logs readable and rules out race conditions when debugging. Higher values (up to 32) raise the pools, but the global LLM/VLM caps still bound actual provider calls.
+
+### `omem ingest --now` ⚠
+
+:::danger[`omem ingest --now` is expensive]
+`--now` forgets the incremental cursor and **re-scans everything**. If nothing changed it stays cheap — content addressing and the curation cache absorb it. But any item whose metadata shifted re-hashes, misses the cache, and calls the LLM again; on a large corpus that can mean **hundreds to thousands of LLM calls and real dollars**. You almost never need it — the normal incremental loop already catches changes. See [why `--now` is expensive](/concepts/04-ingest-lifecycle/#why---now-is-expensive).
+:::
+
+### Observing and controlling a run
+
+| Command | What it does |
+|---|---|
+| `omem ingest status [--format]` | Show active and recent runs at a glance. |
+| `omem ingest watch` | Live-follow the active run's per-phase events. |
+| `omem ingest history` | List past runs with their outcomes. |
+| `omem ingest errors` | Show items that failed, with the error message. |
+| `omem ingest item <uri>` | Trace one item's full history across runs. **Read-only — never triggers an ingest.** |
+| `omem ingest cancel [run_id]` | Stop a running ingest. Flags: `--all` (every active run), `--force` (skip the SIGTERM grace period), `--yes` (skip confirmation), `--timeout-sec` (grace period). |
+
+<Aside type="note" title="Drilling in never costs you">
+`omem ingest item <uri>` is a *query*, not an ingest — it reads the event history for one item and prints it. Investigating "what happened to this file" never triggers an LLM call.
+</Aside>
+
+## Browse the wiki
+
+Browsing is metadata-level: list and filter pages by their frontmatter, with no scoring. For fuzzy or semantic search, use `omem query` instead.
+
+### `omem wiki ls`
+
+Lists pages with filters that combine (AND):
+
+| Flag | Meaning |
+|---|---|
+| `--kind` / `--source` / `--account` | Same filters as `omem query`. |
+| `--since <when>` | Same time grammar as [`query --since`](#--since--filtering-by-time). |
+| `--search <text>` | Case-insensitive substring match on title **or** abstract. No tokenization, no scoring — for ranked search use `omem query`. |
+| `-n`, `--limit <N>` | Max rows; `0` means unlimited. Default `50`. |
+| `--format text\|json` | Output shape. |
+| `--include-deleted` | Include tombstoned rows. |
+
+### `omem wiki move <new_path>` ⚠
+
+Moves the entire wiki vault to a new location and re-points the index (including qmd collections, if enabled). `--dry-run` prints the plan first.
+
+:::danger[`omem wiki move --force` overwrites]
+Without `--force`, `wiki move` refuses a non-empty destination. With it, the vault is merged into whatever's already there. Always run `--dry-run` first. This command — not hand-editing `data.wiki_path` — is how you relocate the vault.
+:::
+
+## Setup &amp; diagnostics
+
+| Command | What it does |
+|---|---|
+| `omem version` | Print the version. |
+| `omem setup` | The onboarding wizard. See [its flags](#omem-setup-flags) below. |
+| `omem doctor [--format]` | Run all health checks (config, LLM endpoint, index, wiki↔db consistency, schedule, disk, …). Each failing check prints a `Fix:` hint. |
+| `omem source status [--kind] [--format]` | Per-source health and cursor position. |
+| `omem source info <kind>/<source>` | Detail for one source (e.g. `mail/mail-app`). |
+| `omem install` | Install/remove the scheduled-ingest job. See [its flags](#omem-install-flags) below. |
+| `omem install status [--json]` | Report the scheduled job's health. **Uses its own 0–3 status codes** — see [exit codes](/reference/04-exit-codes/#omem-install-status-is-the-exception). |
+
+<CommandExplorer client:load sessions={[{
+  command: 'omem doctor',
+  output: [
+    '',
+    'OMem Doctor',
+    '─────────────────────────────────────────',
+    '[Global]',
+    '  ✓ config_schema_valid          ok',
+    '  ✓ llm_endpoint                 reachable (anthropic-oauth)',
+    '  ✓ index_plugin                 fts5 · 1284 pages',
+    '  ✓ wiki_vs_sql_consistency      ok',
+    '  ✓ launch_agent                 loaded (every 15m)',
+    '  ⚠ disk_space                   6.1 GB free',
+    '      → free space, or move data.root to a larger volume',
+    '',
+    '[Kind: file]',
+    '  ✓ roots_reachable              2 roots ok',
+    '',
+    '[Kind: mail]',
+    '  ✓ full_disk_access             granted',
+    '',
+    '1 warning, 0 errors.',
+  ],
+}]} />
+
+### `omem setup` flags
+
+| Flag | Meaning |
+|---|---|
+| `--kind <k>` | Run just one kind's setup step instead of the full wizard. |
+| `--llm` | Jump to the LLM-provider step. |
+| `--browser` | Open the interactive login window for Loop (saves the browser session). |
+| `--grant-tcc` | Probe each enabled kind's macOS permission, triggering the system prompts — and, for Mail's Full Disk Access (which never auto-prompts), open System Settings for a manual add. Run after revoking access or after `brew upgrade` swapped the binary. |
+| `--check` | Verify an existing browser session without re-login (with `--browser`). |
+| `--force` | Force re-login even if the session looks valid. |
+
+### `omem install` flags
+
+| Flag | Meaning |
+|---|---|
+| `--schedule <interval>` | *Optional* override of the run interval (e.g. `3m`, `15m`, `1h`). Omit it and `omem install` uses `schedule.interval_minutes` from your config — you don't need to repeat what the wizard set. |
+| `--watch-roots` | Also trigger ingest when files in your roots change (off by default — the pipeline is a 5–10 min batch, not a real-time sync; cron is the recommended pattern). |
+| `--uninstall` | Remove the scheduled job and unload it. |
+| `--skip-preflight` | Bypass the per-kind preflight check before writing the job (rare; only when the runtime environment differs from your shell). |
+
+:::danger[Permission &amp; login flags change system state]
+`omem setup --grant-tcc` triggers macOS permission prompts; `--browser` opens a login window; `omem install --uninstall` removes the scheduled job. None destroy your data, but they change system state — run them deliberately.
+:::
+
+## Agent integration
+
+### `omem mcp`
+
+Starts a stdio MCP server exposing six **read-only** tools (`query`, `page_get`, `raw_get_path`, `raw_get_parsed_path`, `wiki_ls`, `doctor`) to any MCP client — Cursor, Cline, OpenClaw, and others. Each tool shells out to the same CLI above, so an agent and a human see identical behavior, and destructive verbs are deliberately never exposed. See [querying from an agent](/concepts/07-querying-from-an-agent/).
+
+## Plugins &amp; the index
+
+### Config commands
+
+| Command | What it does |
+|---|---|
+| `omem config get <key>` | Read one value by dotted path. |
+| `omem config show [--raw\|--json]` | Print the effective config (`--raw` = the file verbatim). |
+| `omem config set <key> <value>` | Write one value (JSON for lists/numbers). |
+| `omem config migrate [--dry-run]` | Migrate an old config to the current schema; `--dry-run` previews. |
+
+### Index &amp; plugin commands
+
+| Command | What it does |
+|---|---|
+| `omem plugin list [--format]` | List index plugins and their status. |
+| `omem plugin install <name>` | Install a plugin (only `qmd` today; runs `npm install -g @tobilu/qmd`). |
+| `omem plugin enable <name>` ⚠ | Make a plugin the active index backend. |
+| `omem plugin disable <name>` | Disable a non-active plugin (data preserved). |
+| `omem index status [--format]` | Show the active index's stats (pages, size, backend version). |
+| `omem index rebuild [name]` ⚠ | Drop and rebuild an index from the wiki. |
+
+:::danger[Switching the index backend rebuilds everything]
+`omem plugin enable qmd` flips `active_index` — changing what every future query runs against — and the new backend is empty until you run `omem index rebuild`. A `qmd` rebuild re-embeds every page locally and can take a long time on a large vault. Your wiki and `raw/` are untouched, so you can always switch back, but treat enable + rebuild as a deliberate, one-time action. The four query modes are explained in [config → query_mode](/reference/02-config-schema/#pluginsqmdquery_mode--how-qmd-searches).
+:::
+
+## Maintenance
+
+### `omem lint`
+
+Scans for problems; **read-only by default**. Each flag turns on one check:
+
+| Flag | Checks for / does |
+|---|---|
+| `--orphans` | Tombstoned (deleted-source) pages still on disk. |
+| `--stale` | Pages whose `updated_at` is older than the `--older-than` threshold. |
+| `--old-parsed-versions [N]` | Pages keeping more than N parse versions (default 3 when set without a value). |
+| `--broken-links` | Wiki links pointing at missing files. |
+| `--relink` | Rewrite legacy wiki-root links → CommonMark relative links (a fix, not a scan). |
+| `--all` | Run every read-only scan and produce one report. |
+| `--purge` ⚠ | Actually delete what `--orphans` / `--old-parsed-versions` found. |
+| `--yes` | Skip the confirmation prompt for `--purge`. |
+
+Modifiers: `--older-than <days>` (threshold for `--stale`, default 180) · `--since <when>` (only orphans older than this, e.g. `30d_ago`) · `--kind file\|mail\|calendar\|loop` (narrow to one kind) · `--dry-run` (with `--relink`, report changes without writing) · `--format text\|json`.
+
+:::danger[`omem lint --purge` deletes files]
+On its own, `omem lint` only *reports*. Adding `--purge` (with `--orphans` or `--old-parsed-versions`) **physically deletes** wiki pages and trims parse history — there's a confirmation prompt unless you pass `--yes`. Purging orphans is how tombstoned pages finally leave disk; it's irreversible, so it's always your explicit call. See [deletion is soft, and reversible](/concepts/04-ingest-lifecycle/#deletion-is-soft-and-reversible).
+:::
+
+### `omem log`
+
+| Command | What it does |
+|---|---|
+| `omem log tail` | Tail the log. Flags: `-n/--lines`, `-f/--follow`, `--level <LEVEL>`, `--grep <regex>`. |
+| `omem log errors [--since] [--limit]` | Recent error-level lines (default last 24h). |
+| `omem log show` | Print the log file path and basics. |
+
+## The commands to run deliberately
+
+Most of `omem` is safe to run anytime — every read, status, and query. A short list changes state, costs money, or can't be undone (flagged ⚠ above):
+
+| Command | Why it's deliberate |
+|---|---|
+| `omem ingest --now` | Can trigger many LLM calls (real cost) on a large corpus. |
+| `omem index rebuild` | Drops and rebuilds the index; a `qmd` rebuild can run for a long time. |
+| `omem plugin enable` / `disable` | Switches the active search backend for all future queries. |
+| `omem lint --purge` | Physically deletes wiki pages / trims version history (irreversible). |
+| `omem wiki move --force` | Merges the vault into a non-empty destination. |
+| `omem install --uninstall` | Removes the scheduled-ingest job. |
+| `omem setup --grant-tcc` / `--browser` | Triggers macOS permission prompts / an interactive login. |
+
+## What's next
+
+- **[Configuration schema](/reference/02-config-schema/)** — every `config.yaml` field these commands read, with the decision points explained.
+- **[Exit codes](/reference/04-exit-codes/)** — what each command returns, and how to branch on it.
+- **[File formats](/reference/03-file-formats/)** — what `omem ingest` can actually parse.

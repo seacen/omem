@@ -1,0 +1,39 @@
+---
+title: Design principles
+description: The eight ideas OMem is built on — short-lived processes, local-first sources, the wiki as truth, deterministic parsing, and more. Why the architecture is shaped the way it is.
+---
+
+import DesignPrinciples from '../../../components/DesignPrinciples.tsx';
+import { Aside } from '@astrojs/starlight/components';
+
+**Read this if** you want the *why* behind everything else — the handful of decisions that explain why OMem stores Markdown instead of a database, runs in bursts instead of as a daemon, and refuses to let an LLM do the parsing.
+
+## The eight principles
+
+These tenets are the load-bearing ideas — everything in the other concept pages is a consequence of one or more of them. **Click any card** to expand the deeper reasoning:
+
+<DesignPrinciples client:load />
+
+Two of these carry more weight than the rest, and are worth stating in prose.
+
+## Why the wiki is the truth
+
+Most "AI memory" tools keep your memory inside something you can't see — a vector store, an opaque index. OMem makes the opposite bet, borrowed from Andrej Karpathy's idea of an **LLM-readable wiki**: the core output is a human-readable Markdown wiki that is *also* the retrieval corpus. You read the same thing the agent reads.
+
+That has a concrete payoff. The indexes are opinions layered on top — delete them all and they rebuild from the wiki. The wiki itself is generated from the immutable `raw/` archive — delete the wiki and it rebuilds from `raw/`. Nothing is trapped: back it up, version-control it, hand-edit a page, point it at a different machine. Your work context stays yours, in a format that will still open in fifty years.
+
+## Why parsing is deterministic
+
+A fair question: frontier LLMs can read a PDF or a deck directly — so why does OMem run python-pptx / pymupdf / a vision model to make `parsed.md`, instead of just handing the file to an LLM?
+
+Because OMem is an **archive**, and an archive needs *Stable-A*: the same input rebuilds byte-identical, today and in three years. Only a deterministic function gives you that. An LLM parser gives you *Stable-B* — frozen once written, but not reproducible: retire the model, or let sampling drift, and you can't get the same `parsed.md` back. Swapping the deterministic chain for an LLM would quietly break the archive (and the curation cache, and the ability to diff a prompt change against a fixed parse). It also smooths unusual text — an oddly specific figure like `11.3%` can quietly become a rounder `11%` — where python-docx returns exactly what's in the file.
+
+So the default chain stays deterministic. A `parser-llm` plugin is reserved for v1.5, for people whose priority is visual/layout understanding over archival fidelity — a real trade-off, made explicitly, not by default.
+
+<Aside type="note" title="Honest about v1.0">
+These principles describe the shape of the system, not a finished frontier. Several things they imply — entity-extracted wikis (a page per person/project), fully-offline operation, cross-device sync — are deliberately [out of scope for v1.0](/concepts/01-what-is-omem/#available-today). The principles hold; the surface area grows in v1.5+.
+</Aside>
+
+## What's next
+
+You've seen the *why*. The last piece is the *how-an-agent-uses-it*: continue to [querying from an agent](/concepts/07-querying-from-an-agent/) to see a real agent walk OMem's layers to answer a question.

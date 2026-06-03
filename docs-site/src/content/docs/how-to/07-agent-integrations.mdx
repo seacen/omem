@@ -1,0 +1,95 @@
+---
+title: Connect agents
+description: Wire OMem into your agent. Agents with a skill mechanism (Claude Code, Codex, Claw Hub) use the OMem skill; agents without one connect via the omem mcp server. Config for each.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+**Read this if** you're connecting OMem to a specific agent and want the exact steps. For the conceptual overview, see [let an AI agent use your memory](/getting-started/04-connect-an-agent/); this page is the wiring reference.
+
+## Skill first, MCP as the fallback
+
+OMem ships one **skill** — a small, agent-neutral wrapper that teaches an agent when to query your work memory and how to walk the results. There are two ways an agent picks it up:
+
+- **If your agent has a skill / plugin mechanism, use the skill.** It's the richer integration: the skill carries trigger semantics (when to auto-query) and the progressive-disclosure flow, not just raw tools. This is the preferred path for **Claude Code, Codex, and Claw Hub**.
+- **If your agent only speaks MCP, use the `omem mcp` server.** Same six tools, but as a generic MCP endpoint — the fallback for agents without a native skill mechanism (Cursor, Cline, Continue, Zed, …).
+
+Both surface the **same six read-only capabilities**; the difference is whether the agent also gets the skill's trigger + drill guidance.
+
+## Agents with a skill
+
+### Claude Code
+
+With the `omem` CLI installed and set up, add the marketplace and install the skill:
+
+```
+/plugin marketplace add seacen/omem
+/plugin install omem@seacen-marketplace
+```
+
+The agent now auto-invokes OMem on work-context questions. Verify by asking *"check my OMem health"* — it should run `omem doctor`.
+
+### Codex
+
+OMem ships a Codex plugin manifest carrying the same skill. The bundle registers the `omem` MCP entry so Codex auto-wires it; install per Codex's plugin instructions, with the `omem` CLI already on your `PATH`.
+
+### Claw Hub
+
+OMem ships a Claw Hub manifest with the same skill capability. Install it from Claw Hub the way you install any of its plugins — again, with the `omem` CLI installed first.
+
+<Aside type="note" title="One skill, several manifests">
+Claude Code, Codex, and Claw Hub each get a thin manifest pointing at the *same* skill content — identical triggers, identical six tools. You're not configuring three different things; you're installing one skill through three front doors.
+</Aside>
+
+## Agents without a skill — the MCP server
+
+`omem mcp` runs a stdio MCP server exposing the six tools to any MCP client. One config entry connects it:
+
+**Cursor** — `.cursor/mcp.json` (or Settings → MCP Servers):
+```json
+{
+  "mcpServers": {
+    "omem": { "command": "omem", "args": ["mcp"] }
+  }
+}
+```
+
+**Cline, Continue, Zed** — same shape (`command: "omem"`, `args: ["mcp"]`) in that agent's MCP config file.
+
+<Aside type="tip" title="When to use MCP if your agent also has a skill">
+If your agent supports a skill, prefer it — you get the trigger and drill guidance for free. Reach for the raw MCP entry only when the agent has no skill mechanism, or when you specifically want to wire the tools yourself.
+</Aside>
+
+## The six tools (skill = MCP)
+
+Both surfaces expose exactly these, and nothing else:
+
+| Tool | What it does |
+|---|---|
+| `query` | Ranked search across all indexed work |
+| `page_get` | Full wiki page (frontmatter + body) |
+| `raw_get_path` | Path to the original source file (file kind) |
+| `raw_get_parsed_path` | Path to the parsed source (with version history) |
+| `wiki_ls` | Browse pages by kind / source / account / date |
+| `doctor` | OMem health check |
+
+<Aside type="note" title="Read-only by design">
+Setup, ingest, re-indexing, purging, config changes — none are exposed to agents, on either surface. They stay deliberate human actions, so connecting an agent can never let it reconfigure or delete your data. See [querying from an agent](/concepts/07-querying-from-an-agent/).
+</Aside>
+
+## Prerequisite (all paths)
+
+Every integration needs the `omem` CLI installed and configured first:
+
+```bash
+brew install seacen/omem/omem
+omem setup
+omem ingest
+```
+
+See [install](/getting-started/01-install/) and [setup](/getting-started/02-setup-wizard/).
+
+## What's next
+
+- **[Querying from an agent](/concepts/07-querying-from-an-agent/)** — how a well-behaved agent uses these tools.
+- **[Schedule ingest](/how-to/08-launchd-schedule/)** — keep the memory fresh automatically.

@@ -1,0 +1,125 @@
+---
+title: 常见错误
+description: 你真正可能撞上的那些报错——LLM 认证、ingest 参数、macOS 权限、邮件什么都没摄入、Loop 拉取失败、qmd 冷启动——每一条都附上原因和修法。可以按报错原文直接搜。
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+**如果** OMem 报了个错，你想知道它是什么意思、怎么修，看这一页。下面每一条都把你会看到的报错原文照搬出来，方便你直接 `Ctrl+F` 搜原句。要是还没跑过 [`omem doctor`](/zh-cn/troubleshooting/01-doctor-output/)，先跑它——大半问题它都能逮住，还会顺手把修法打印出来。
+
+## LLM 与认证
+
+### `api_key is empty — set the env var named by llm.*.api_key_env`
+
+**原因：** 你用的是 API key 类型的 provider（`anthropic-api` 或 `openai-compat`），但配置里指定的那个环境变量没设（或者是空的）。
+
+**修法：** 把 key 导出到配置指向的那个环境变量里，或者存进 Keychain 再设 `api_key_keychain`。拿不准就重跑一遍 setup：`omem setup --llm`。
+
+### `Claude Code OAuth credentials not found in Keychain`
+
+**原因：** 你选了 `anthropic-oauth` 这个 provider，但 Keychain 里还没有 Claude 的 OAuth token。
+
+**修法：** 先跑一次 Claude Code（它会把凭证写进去），再 `omem setup --llm`。之后 OMem 会自己刷新这个 token；要是哪次刷新失败了，重跑 `omem setup --llm` 就行。
+
+<Aside type="note" title="限流和拒绝会自己重试">
+偶发的 `429 rate limit`，或者跑到一半过期的 OAuth token，都不用你管——失败的那条会在下次 ingest 时自动重试。你能在 `omem ingest errors` 里看到它，通常自己就好了。
+</Aside>
+
+## Ingest 参数
+
+下面这些，你一打错 flag 就会被当场拦下：
+
+| 报错 | 修法 |
+|---|---|
+| `Error: no kinds enabled in cfg.kinds.*.enabled — run omem setup` | 什么都没打开。跑 `omem setup`，或者 `omem config set kinds.<k>.enabled true`。 |
+| `Error: --vlm-mode must be auto\|always\|never, got X` | 三个值里挑一个。 |
+| `Error: --concurrency must be 1..32, got N` | 选一个范围内的值。 |
+| `Error: --kind must be one of file/mail/calendar/loop, got X` | 检查一下 kind 的名字。 |
+| `Error: --source can only be used with a specific --kind` | 用 `--source` 时记得带上 `--kind`。 |
+
+## macOS 权限（TCC / FDA）
+
+### `Mail envelope requires Full Disk Access (FDA)`
+
+**原因：** 读 Apple Mail 要完全磁盘访问权限（Full Disk Access），而 macOS **从不**自动弹窗问你要。"邮件什么都没摄入"，最常见的就是这个原因。
+
+**修法：**
+```bash
+omem setup --grant-tcc
+```
+它会打开 系统设置 → 隐私与安全性 → 完全磁盘访问权限，并把 `omem` 这个二进制亮出来——把它拖进列表里（或者直接打开开关）。
+
+### 日历什么都没摄入 / `requires Calendars permission`
+
+**原因：** 日历需要一个 macOS 权限，**具体是哪个，看你的 macOS 版本：**
+
+- **macOS ≤ 12：** 是 **日历（Calendars）** 这个隐私权限，会正常弹窗问你。
+- **macOS 26（Tahoe）及更新：** 日历数据库挪进了一个沙箱化的群组容器，所以现在它要的是 **完全磁盘访问权限**——跟邮件一样。macOS 从不为 FDA 弹窗，所以"换了台新 Mac，日历什么都没摄入"最常见的就是这个原因。
+
+**修法：** `omem setup --grant-tcc` 会探测你的版本，再带你走对应的那条路。在 macOS 26 上，意味着你得手动把 `omem` 这个二进制加进完全磁盘访问权限（系统设置 → 隐私与安全性 → 完全磁盘访问权限）。
+
+<Aside type="caution" title="终端里能用、定时跑却失败？">
+要是邮件/日历在你自己敲 `omem` 时能用，但**定时**任务什么都没摄入，那几乎一定是 FDA：launchd 任务是以 `omem` 的身份跑的，没有终端可以借权限。把 **`omem` 这个二进制本身**加进完全磁盘访问权限（不是加终端）。详见 [setup 向导里那段权限说明](/zh-cn/getting-started/02-setup-wizard/#授予-macos-访问权限)。
+</Aside>
+
+## 邮件什么都没摄入
+
+这不一定有报错——有时 ingest 就是跑出来零页邮件。按顺序一条条排查：
+
+1. **完全磁盘访问权限**——就是上面那个原因。先跑 `omem doctor`；如果邮件那块显示 `✗ full_disk_access`，先把它修了。
+2. **时间窗太窄**——默认只回溯 3 个月。把它放宽：`omem config set kinds.mail.scope.time_window.since 1y_ago`。
+3. **文件夹名字**——默认是 `inbox` 加 `sent`。要是你的邮件在别处，把文件夹加上：`omem config set kinds.mail.scope.folders '["inbox", "sent", "archive"]'`。
+4. **账号过滤**——如果你设了 `source_config.accounts`，确认地址一字不差地对上。
+
+用 `omem source status --kind mail` 确认（它会显示 cursor 和扫过了什么）。
+
+## Loop 拉取失败
+
+Loop 牵扯的环节最多（OneDrive 同步 + 一个浏览器会话），所以它有几个专门的报错：
+
+### `LoopSyncEngineDbNotFound`
+
+**原因：** OneDrive 的同步数据库不在 OMem 预期的位置——通常是 OneDrive 没在跑，或者没登录。
+
+**修法：** 把 OneDrive 启动起来，让它登录、同步完，再重跑 `omem ingest --kind loop`。
+
+### `LoopFetchTimeout`
+
+**原因：** 那个 SharePoint 页面在超时之前没在浏览器里渲染出来（网络慢，或者页面特别大）。
+
+**修法：** 重试一下；如果总卡在某一页，那这页可能大得不寻常，或者你的网络太慢。
+
+### 会话过期 / 登录失效
+
+**原因：** 保存下来的浏览器会话过期了。
+
+**修法：**
+```bash
+omem setup --browser
+```
+重新登录，存一份新的会话。（记住 Loop 是从 **SharePoint** 拉取的——如果某条笔记的 SharePoint 权限变了，哪怕会话有效，OMem 也解析不到它。）
+
+## qmd 第一次跑很慢
+
+**现象：** 打开 `qmd` 之后，头一次 `omem ingest` 或 `omem query` 卡了好久——可能要好几分钟。
+
+**原因：** `qmd` 头一次用的时候才懒加载 ~2.2 GB 的本地模型，而 reranker 冷启动加载很慢。
+
+**修法：** 这是头一回该有的样子。让它跑完，往后就快了。如果一次 full 模式的冷启动跑到超时，把上限抬高：`omem config set plugins.qmd.subprocess_timeout_sec 3600`。日常追求快的话，`no-rerank` 模式要快得多——见 [查询模式](/zh-cn/reference/02-config-schema/#pluginsqmdquery_mode--qmd-怎么搜)。
+
+## EMF/WMF 图片没被描述出来
+
+**现象：** 粘进 Office 文档里的图表或 SmartArt，显示成一个占位符，而不是一段描述。
+
+**原因：** 这些是 EMF/WMF 矢量图；OMem 要靠 LibreOffice 把它们转成 PNG，而 LibreOffice 没装。
+
+**修法：**
+```bash
+brew install --cask libreoffice
+```
+没装它，其余的照样摄入；只有这些矢量图会被跳过。
+
+## 接下来
+
+- **[读懂 omem doctor](/zh-cn/troubleshooting/01-doctor-output/)**——逮住大半问题的那个健康检查。
+- **[性能调优](/zh-cn/troubleshooting/03-performance-tuning/)**——如果它能用，只是感觉慢。

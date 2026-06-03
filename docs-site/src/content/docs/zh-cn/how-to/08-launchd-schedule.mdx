@@ -1,0 +1,82 @@
+---
+title: 定时自动摄入
+description: 装一个 launchd 任务,让 OMem 按定时自己摄入,wiki 一直新鲜,你什么都不用手动跑。怎么配间隔、怎么看状态、怎么卸载。
+---
+
+import CommandExplorer from '../../../../components/CommandExplorer.tsx';
+import { Aside } from '@astrojs/starlight/components';
+
+**想让 OMem 自己保持最新**——按定时摄入新邮件、新文件、新日程,不用你手敲 `omem ingest`?看这一页。OMem 用的就是 macOS 自带的 `launchd` 定时器,没有什么后台 daemon 要你操心。
+
+## 装上定时
+
+间隔你在 [setup](/zh-cn/getting-started/02-setup-wizard/) 里已经选过了,所以直接跑:
+
+```bash
+omem install
+```
+
+它会从你的配置里读出那个间隔,写一个 launchd 任务,按这个节奏去跑 `omem ingest`。因为 [重跑很便宜](/zh-cn/concepts/04-ingest-lifecycle/)(OMem 只动改过的东西),间隔设得勤一点也没事。
+
+想用一个跟配置里不一样的间隔——或者你当初跳过了那一步——就加 `--schedule`(它只在这一次安装时盖过配置里的值):
+
+```bash
+omem install --schedule 15m     # 3m、15m、1h…… —— 盖过配置
+```
+
+<Aside type="note" title="它是个短命任务,不是 daemon">
+没有一直跑着的进程。`launchd` 唤起一个短命的 `omem ingest`,它干完活就退出。两次之间没有任何东西常驻内存——这是 [设计原则 P1](/zh-cn/concepts/06-design-principles/),也正是 OMem"零运维"的由来。
+</Aside>
+
+## 确认它健康
+
+```bash
+omem install status
+```
+
+<CommandExplorer client:load lang="zh" sessions={[{
+  command: 'omem install status',
+  output: [
+    'omem install status  (2026-06-02T14:35:00)',
+    '────────────────────────────────────────────────────────────',
+    'launchd plist',
+    '  ✓ ~/Library/LaunchAgents/com.omem.ingest.plist',
+    '    program        : /usr/local/bin/omem',
+    '    StartInterval  : 900s',
+    '    WatchPaths     : 0',
+    '  ✓ launchctl loaded  (state: waiting, pid: -)',
+    '    last_exit_code : 0',
+    '    last_run_at    : 2026-06-02 14:30',
+    '────────────────────────────────────────────────────────────',
+    'ingest_events freshness',
+    '  events last 24h: 312',
+    '  last_event_ts  : 2026-06-02 14:30',
+    '────────────────────────────────────────────────────────────',
+    'verdict: ✓ OK',
+  ],
+}]} />
+
+这条命令有它自己的一套状态码(0 = 健康,1 = 没装,2 = 没加载,3 = 装了但上一次跑失败、或者 24 小时内一次都没跑)——见 [退出码](/zh-cn/reference/04-exit-codes/)。它是一行就能跑出来的健康探针,你可以拿监控脚本去定时拉它。
+
+## 卸载
+
+```bash
+omem install --uninstall
+```
+
+把 launchd 任务移掉。你的 wiki 和数据原封不动——停的只是定时。
+
+## 两件值得知道的事
+
+**它用的是全局装的那个 `omem`。** 定时任务必须指向你授予了完全磁盘访问权限的那同一个 `omem` 二进制——也就是你 `PATH` 上的那个(`brew` 或 curl 装的),不是某个开发用的副本。这样 macOS 那边认的权限身份才一致,[定时摄入邮件才不会悄没声地失败](/zh-cn/getting-started/02-setup-wizard/#授予-macos-访问权限)。
+
+**按文件变化触发是要手动打开的。** 默认情况下,任务纯靠定时跑。你*可以*加 `--watch-roots`,让根目录里的文件一变就也触发一次,但它默认是关的:摄入是个跑几分钟的批处理,不是实时同步,所以定时才是我们推荐的玩法。
+
+```bash
+omem install --watch-roots   # 文件一变也触发
+```
+
+## 接下来
+
+- **[观察摄入过程](/zh-cn/how-to/11-observe-ingest/)**——看看定时跑都在干什么。
+- **[摄入生命周期](/zh-cn/concepts/04-ingest-lifecycle/)**——为什么勤着跑也一直便宜。

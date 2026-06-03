@@ -1,0 +1,42 @@
+---
+title: Retrieval — how a query finds the page
+description: How OMem turns a query into the right page — fts5 (BM25 + Chinese segmentation) by default, and qmd's multi-path recall (query expansion + BM25 + vector embeddings + rerank) when you want semantic, cross-language search.
+---
+
+import RetrievalFlow from '../../../components/RetrievalFlow.tsx';
+import { Aside } from '@astrojs/starlight/components';
+
+**Read this if** you want to know what actually happens between `omem query "…"` and the ranked pages that come back — and why search quality holds up on real, messy, bilingual office data.
+
+## Two backends, one interface
+
+`omem query` runs against whichever index backend is active. The command never changes; the machinery behind it does.
+
+- **`fts5`** (the default) — BM25 keyword search over **jieba-segmented tokens**. Always-on, ~50ms, zero setup. Chinese is first-class, not an afterthought: without segmentation, FTS5 would treat each Chinese character as a token and search precision on Chinese-mixed text would collapse to roughly zero. With jieba, it's on par with English.
+- **`qmd`** (optional plugin) — **multi-path retrieval**: query expansion + BM25 + vector embeddings + a reranker, all local. This is what you reach for when you want *meaning*-based and cross-language search, not just keyword overlap.
+
+## How qmd's multi-path recall works
+
+The reason qmd finds pages plain keyword search misses is that it doesn't rely on one signal. It expands the query, runs **two recall paths in parallel** — one keyword, one semantic — fuses them, and reranks. **Press ▶ to send a query through all five steps** (or click any step to inspect it):
+
+<RetrievalFlow client:load />
+
+The payoff is concrete:
+
+- **Cross-language search actually works.** An English query like `"Q3 budget review"` retrieves a page written entirely in Chinese as `第三季度预算评审` — because the vector path matches *meaning*, not tokens. For globalized teams who live in mixed Chinese/English documents, this is the difference between search working and not.
+- **Precision on proper nouns is kept.** The keyword path still nails exact names, codenames, and invoice numbers — the things vector search alone tends to "average away".
+- **It's all local.** The expansion, embedding, and reranking models run on your machine. Beyond the curation step at ingest, retrieval doesn't call out anywhere.
+
+<Aside type="note" title="Speed vs. quality is a dial">
+qmd's full stack (expansion + fusion + rerank) is the most accurate and the slowest — on lighter hardware the reranker is the costly part. You can run a lighter mode (expansion + fusion, no rerank) that's much faster and still clearly beats plain keyword search. It's a trade-off you set, not a fixed cost.
+</Aside>
+
+## Quality is a hard gate, not a vibe
+
+Search quality is held to a measured bar, not an impression. OMem is regression-tested against a fixed set of golden queries with verified expected hits, scoring **precision@3** — and a milestone can't ship if it drops below the threshold. Both backends clear it: the default keyword index and qmd's multi-path stack are each held to the same standard, so "search is good" is something the build enforces, not something we hope.
+
+## The score is the start, not the end
+
+One thing worth carrying into how you *use* this: whatever the backend, the score it returns is **coarse candidate-ranking**, not a final relevance judgment. It finds plausibly-related pages; it doesn't know which one actually answers your question. The agent closes that gap by reading the abstracts and reranking itself — which is exactly what [querying from an agent](/concepts/07-querying-from-an-agent/) walks through.
+
+Cross-backend note: don't compare a `0.9` from fts5 to a `0.9` from qmd — they're computed differently. Only the rank order *within one query* is meaningful.

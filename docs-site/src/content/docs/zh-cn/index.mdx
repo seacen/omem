@@ -1,0 +1,68 @@
+---
+title: OMem
+description: 让 AI 记得你所有的工作。OMem 是一个本地优先、agent 无关的办公记忆层，自动把你真实的工作——邮件、日历、会议笔记、文件——整理成任何 AI agent 都能查的 wiki。
+template: splash
+hero:
+  tagline: 让 AI 记得你所有的工作。
+  image:
+    light: ../../../assets/brand/seal-hero-light.svg
+    dark: ../../../assets/brand/seal-hero-dark.svg
+  actions:
+    - text: 开始使用
+      link: getting-started/01-install/
+      icon: right-arrow
+    - text: OMem 是什么？
+      link: concepts/01-what-is-omem/
+      icon: open-book
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+你的 AI agent 很聪明，但每次对话都从一张白纸开始——它看不见你身边正在发生的工作。OMem 把这件事补上。它安静地跑在你的电脑上，把你真实的工作——邮件、日历、会议笔记、各种文件（Office 格式、PDF、图片、HTML、Markdown）——整理成一份纯 Markdown 的 wiki，**任何** agent 都能查。今年真正能干活的 agent 已经出现了，缺的只是你工作的上下文——OMem 就是把这两端连起来的那根线。
+
+**现在支持 macOS，Windows 在路上。** 个人使用免费。
+
+## 从这里开始
+
+<CardGrid>
+	<Card title="安装与配置" icon="right-arrow">
+		从 `brew install` 到第一条查询，五分钟跑通——或者直接让你的 AI agent 帮你装。[开始使用 →](/zh-cn/getting-started/01-install/)
+	</Card>
+	<Card title="理解它" icon="open-book">
+		为什么是这个形态：wiki 即真相、渐进式披露、确定性 parser、多路召回检索。[阅读核心概念 →](/zh-cn/concepts/01-what-is-omem/)
+	</Card>
+	<Card title="日常使用" icon="setting">
+		摄入邮件、文件、日历和 Loop；从 agent 查询；定时、观测、备份。[操作指南 →](/zh-cn/how-to/01-ingest-files/)
+	</Card>
+	<Card title="查阅细节" icon="document">
+		每个 CLI 命令、每个配置字段、文件格式、退出码。[参考 →](/zh-cn/reference/01-cli-commands/)
+	</Card>
+</CardGrid>
+
+## 它有什么不同
+
+<CardGrid>
+	<Card title="本地优先，零 IT 介入" icon="approve-check">
+		读取你操作系统本就能访问的内容——不上云、不需要 Graph API 授权、不用走 IT 工单。
+	</Card>
+	<Card title="wiki 属于你自己" icon="document">
+		纯 Markdown 文件，放在你自己选的目录里。可读、可 grep、可编辑、可版本控制。没有任何东西把你锁死。
+	</Card>
+	<Card title="agent 中立" icon="random">
+		唯一接口是 CLI；Skill / MCP 只是它薄薄的一层封装。明年换 agent——你的记忆照样还在。
+	</Card>
+	<Card title="检索是真的好用" icon="magnifier">
+		默认关键词搜索；装上 `qmd` 即可获得多路召回的语义 + 跨语言检索。中文是一等公民，不是事后补丁。
+	</Card>
+</CardGrid>
+
+## 保持更新
+
+<LinkCard title="更新日志" description="每个版本发布了什么，最新在前。" href={`${import.meta.env.BASE_URL}/zh-cn/changelog/`.replace(/\/+/g, '/')} />
+
+## 联系作者
+
+OMem 由一位身处企业 AI 落地第一线的 IT 管理者打造。无论你是正在用 OMem、在考虑给团队用，还是只想聊聊，我都很想听到你的声音。
+
+<LinkCard title="关于作者，以及怎么联系我" description="谁在做 OMem、为什么——以及怎么联系我。" href={`${import.meta.env.BASE_URL}/zh-cn/about-the-author/`.replace(/\/+/g, '/')} />

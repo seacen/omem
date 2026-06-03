@@ -1,0 +1,70 @@
+---
+title: OMem
+description: The office your AI remembers. OMem is a local-first, agent-agnostic memory layer that automatically turns your real work — mail, calendar, meeting notes, and files — into a wiki any AI agent can query.
+template: splash
+hero:
+  tagline: The office your AI remembers.
+  image:
+    light: ../../assets/brand/seal-hero-light.svg
+    dark: ../../assets/brand/seal-hero-dark.svg
+  actions:
+    - text: Get started
+      link: getting-started/01-install/
+      icon: right-arrow
+    - text: What is OMem?
+      link: concepts/01-what-is-omem/
+      icon: open-book
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+Your AI agent is clever, but every session starts blank — it can't see the work going on around you. OMem fixes that. It runs quietly on your machine, turning your real work — email, calendar, meeting notes, and files (Office formats, PDFs, images, HTML, Markdown) — into a plain-Markdown wiki that **any** agent can query. Capable agents and your real work context, finally connected.
+
+**Available on macOS today; Windows is coming.** Free for personal use.
+
+## Start here
+
+<CardGrid>
+	<Card title="Install &amp; set up" icon="right-arrow">
+		Five guided minutes from `brew install` to your first answer — or let your AI agent install it for you. [Get started →](/getting-started/01-install/)
+	</Card>
+	<Card title="Understand it" icon="open-book">
+		Why it's shaped this way: the wiki as truth, progressive disclosure, deterministic parsing, multi-path retrieval. [Read the concepts →](/concepts/01-what-is-omem/)
+	</Card>
+	<Card title="Use it day to day" icon="setting">
+		Ingest mail, files, calendar and Loop; query from an agent; schedule, observe, back up. [How-to guides →](/how-to/01-ingest-files/)
+	</Card>
+	<Card title="Look something up" icon="document">
+		Every CLI command, every config field, file formats, exit codes. [Reference →](/reference/01-cli-commands/)
+	</Card>
+</CardGrid>
+
+## What makes it different
+
+<CardGrid>
+	<Card title="Local-first, zero IT" icon="approve-check">
+		Reads what your OS already has access to — no vendor cloud, no Graph API consent, no IT ticket.
+	</Card>
+	<Card title="The wiki is yours" icon="document">
+		Plain Markdown files in a folder you choose. Read it, grep it, edit it, version it. Nothing locks you in.
+	</Card>
+	<Card title="Agent-agnostic" icon="random">
+		One CLI; a thin Skill / MCP wrapper over it. Switch agents next year — your memory persists.
+	</Card>
+	<Card title="Search that's actually good" icon="magnifier">
+		Keyword search by default; enable `qmd` for multi-path semantic + cross-language retrieval. Chinese is first-class.
+	</Card>
+</CardGrid>
+
+## Keeping current
+
+<LinkCard title="Changelog" description="What shipped in each release, newest first." href={`${import.meta.env.BASE_URL}/changelog/`.replace(/\/+/g, '/')} />
+
+## Talk to the author
+
+OMem is built by an IT lead working on the front line of enterprise AI
+adoption. If you're using OMem, thinking about it for a team, or just want to
+talk shop, I'd genuinely like to hear from you.
+
+<LinkCard title="About the author & how to reach me" description="Who builds OMem, why — and how to get in touch." href={`${import.meta.env.BASE_URL}/about-the-author/`.replace(/\/+/g, '/')} />

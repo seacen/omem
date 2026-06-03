@@ -1,0 +1,48 @@
+---
+title: Kind 与 Source
+description: OMem 读的四类工作——file、mail、calendar、loop——以及每一类背后的 source。v1.0 发什么、什么推迟,以及为什么 calendar 读的是本地存储而不是 Outlook Web。
+---
+
+import KindSourceMatrix from '../../../../components/KindSourceMatrix.tsx';
+import { Aside } from '@astrojs/starlight/components';
+
+如果你想弄清楚 OMem 到底能摄入哪些东西、每一类数据从哪里来、哪些是 v1.0 就有的、哪些得等以后——这一页就是那张地图。要是你正在配置 OMem、拿不准该开哪几个 kind,也看这里。
+
+## Kind 和 source,是两码事
+
+OMem 把一份工作*是什么*,和它*从哪儿来*,分得清清楚楚:
+
+- **kind** 是你脑子里自然会去归的那一类:一个文件、一封邮件、一个日程、一条会议笔记。你平时打交道的就是这一层。
+- **source** 是真正负责去读它的后端:`mail-app` 读 Apple Mail,`local-files` 把一个目录扫一遍,等等。同一个 kind,背后可以有好几个备选的 source。
+
+每个 kind 用哪个 source,是你在 [setup](/zh-cn/getting-started/02-setup-wizard/) 时挑的,各挑各的、互不相干:你完全可以让 mail 走一个 source、calendar 走另一个。不过大多数人直接用默认的就好。
+
+## 四个 kind
+
+OMem v1.0 一共覆盖四个 kind。**点开每一个**,看它在 v1.0 用的 source、读些什么、又有哪些被推迟了:
+
+<KindSourceMatrix client:load lang="zh" />
+
+## 两个地方,得说准了
+
+这里有两处特别容易想当然,所以干脆把话挑明。
+
+**v1.0 的 mail 只走 `mail-app`。** Outlook 那几个 source(`outlook-classic`、`outlook-web`、`outlook-applescript`)架构上都设计好了,但推到了 v1.5 以后。原因很简单:在 macOS 上,你 Outlook 账号同步下来的邮件本来就原样躺在 Apple Mail 的本地库里,`mail-app` 不靠任何浏览器自动化就能把这些数据收进来。只要你在 macOS 邮件里配过 Exchange,你的工作邮件就已经在 OMem 够得着的范围里了。
+
+**calendar 读的是本地库,不是 Outlook Web。** 默认 source 是 `calendar-app`,直接读 Apple Calendar 的本地 SQLite 库,Exchange、iCloud、CalDAV 的账号全都汇到这里。早先有过一版设计,是让 calendar 绕道去抓 Outlook Web 的网页,后来还是换掉了:读本地库更稳,也跟 mail 的做法一致。
+
+<Aside type="note" title="为什么 source 都坚持本地优先">
+v1.0 的每个 source,读的都是你 Mac 上本就存在的数据:不碰 Graph API,不要管理员点头,也不用走 IT 工单。这是想清楚了才定的立场,不是能力上的将就;详见 [设计原则 P2](/zh-cn/concepts/06-design-principles/)。这笔账算得很坦诚:它能读的,就是你操作系统本来就准它看的那些东西,而那恰好就是你每天真正在做的工作。
+</Aside>
+
+## `file` 怎么把其他几类兜起来
+
+`file` 是那个万金油 kind:你把它指向任何一个目录(同步下来的 OneDrive 文件夹、你的 Downloads、某个项目目录),它就会把里面每一种支持的格式都摄进来。它还替 `loop` 悄悄干了一件事:扫到那个同步的 OneDrive 文件夹、碰上一个 `.loop` 文件时,它不会硬去啃那段二进制,而是记下一个指针,转交给 `loop` source 去解。这一手交接,就是 OMem 的 [指针派发模式](/zh-cn/concepts/06-design-principles/)(设计原则 P8);往后再碰到别的"指向远端文档的指针",走的也是同一套机制。
+
+## 账号
+
+`mail` 和 `calendar` 可以挂好几个**账号**,比如工作用的 Exchange 和私人的 iCloud。setup 时你按 kind 选好要摄入哪些账号,OMem 会在 wiki 里把它们各归各位地分开存(`wiki/mail/<account>/…`),这样一条工作邮件绝不会跟私人邮件搅在一起。`file` 和 `loop` 则没有账号这个概念。
+
+## 接下来
+
+知道了 OMem *读什么*,下一个问题自然是:读进来之后会发生什么。接着看 [摄入生命周期](/zh-cn/concepts/04-ingest-lifecycle/),跟着一个条目走完全程——从被发现,到变成一页做好的、能查的 wiki 页。

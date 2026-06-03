@@ -1,0 +1,75 @@
+---
+title: Query and search
+description: Search your wiki with omem query — filter by kind, source, account, and time; read results with page get and raw get; and browse by metadata with wiki ls.
+---
+
+import CommandExplorer from '../../../components/CommandExplorer.tsx';
+import { Aside } from '@astrojs/starlight/components';
+
+**Read this if** you want to get more out of search than a bare question — filtering by date or kind, drilling into results, or browsing your wiki by metadata. (For how an *agent* should query, see [querying from an agent](/concepts/07-querying-from-an-agent/).)
+
+## The basic query
+
+```bash
+omem query "Q3 budget review"
+```
+
+Returns ranked hits — score, kind, page-id, and a one-line summary each. The score is a rough ranking; **read the summaries, don't just trust the top hit.**
+
+## Filter the search
+
+Filters combine, so you can narrow precisely:
+
+| Flag | Example | Effect |
+|---|---|---|
+| `--limit / -n` | `-n 20` | More candidates (good for skimming). |
+| `--kind` | `--kind mail` | Only one kind. |
+| `--source` | `--source local-files` | Only one backend. |
+| `--account` | `--account you@co.com` | Only one mail/calendar account. |
+| `--since` | `--since 2w_ago` | Modified at/after a time. |
+| `--format` | `--format json` | Machine-readable output. |
+
+```bash
+omem query "contract terms" --kind mail --since 3m_ago --limit 20
+```
+
+`--since` filters on the **source's** modification time (the file's mtime, the mail Date), not when OMem ingested it. It accepts `Nd_ago` / `Nw_ago` / `Nm_ago` / `Ny_ago` or an ISO date.
+
+## Drill into a result
+
+The [progressive-disclosure ladder](/concepts/02-progressive-disclosure/) — go as deep as the question needs:
+
+```bash
+omem page get a3f9c2bd              # the curated page (L1)
+omem raw get a3f9c2bd --parsed      # the full parsed source (L2)
+omem raw get a3f9c2bd               # path to the original file (L3, file kind)
+```
+
+Any 8+ character page-id prefix works.
+
+## Browse instead of search
+
+When you want to *list* rather than *rank* — "all mail from this account last month" — use `wiki ls`. It filters by metadata with no scoring:
+
+<CommandExplorer client:load sessions={[{
+  command: 'omem wiki ls --kind mail --since 1m_ago --limit 5',
+  output: [
+    'PAGE_ID   TITLE                                           UPDATED               KIND      SOURCE',
+    'a3f9c2bd  Re: Atlas Q3 — scope sign-off                   2026-06-01 09:00      mail      mail-app',
+    'c4e1882a  RFP follow-up — vendor shortlist                2026-05-28 16:20      mail      mail-app',
+    'd72b0f10  Weekly staff sync — action items                2026-05-27 10:05      mail      mail-app',
+    'e90a4c33  Re: contract draft v2 comments                  2026-05-24 11:48      mail      mail-app',
+    'f1c8b265  Q3 planning — agenda                            2026-05-20 08:30      mail      mail-app',
+  ],
+}]} />
+
+`wiki ls` also takes `--search <text>` for a plain substring match on title/abstract (case-insensitive, no ranking) — handy when you know roughly what the title says. For fuzzy or semantic matching, use `omem query`.
+
+<Aside type="tip" title="For the best search, enable qmd">
+Keyword search (`fts5`) only matches your literal words. We **recommend the `qmd` plugin**: it adds vector + query-expansion + reranked retrieval, so it matches by *meaning* and across languages — noticeably better on real work. See [retrieval](/concepts/08-retrieval/) and [query_mode](/reference/02-config-schema/#pluginsqmdquery_mode--how-qmd-searches).
+</Aside>
+
+## What's next
+
+- **[Querying from an agent](/concepts/07-querying-from-an-agent/)** — how an agent reranks and drills.
+- **[CLI commands](/reference/01-cli-commands/#query--retrieve)** — every query/page/raw flag.

@@ -1,0 +1,48 @@
+---
+title: Kinds and sources
+description: The four kinds of work OMem reads — file, mail, calendar, loop — and the sources that back each one. What ships in v1.0, what's deferred, and why calendar reads the local store, not Outlook Web.
+---
+
+import KindSourceMatrix from '../../../components/KindSourceMatrix.tsx';
+import { Aside } from '@astrojs/starlight/components';
+
+**Read this if** you want to know exactly what OMem can ingest, where each kind of data comes from, and what's in scope for v1.0 versus later. If you're setting up OMem and deciding which kinds to enable, this is the map.
+
+## Kind vs. source — two different things
+
+OMem separates *what* a piece of work is from *where it comes from*:
+
+- A **kind** is a category of work you think in: a file, an email, a calendar event, a meeting note. This is the layer you live in.
+- A **source** is the backend that actually reads it: `mail-app` reads Apple Mail, `local-files` walks a directory, and so on. One kind can have several possible sources.
+
+You pick a source per kind during [setup](/getting-started/02-setup-wizard/), and they're independent — you could read mail from one source and calendar from another. Most people just take the defaults.
+
+## The four kinds
+
+OMem v1.0 covers four kinds. **Click each** to see its v1.0 source, what it reads, and what's deferred:
+
+<KindSourceMatrix client:load />
+
+## Two things worth being precise about
+
+A couple of points here are easy to get wrong, so they're worth stating plainly.
+
+**Mail is `mail-app` only in v1.0.** The architecture has Outlook sources designed (`outlook-classic`, `outlook-web`, `outlook-applescript`), but they're deferred to v1.5+. On macOS, Apple Mail's local store already holds the same mail your Outlook account syncs down — so `mail-app` covers the data without a browser-automation dependency. If you've configured Exchange in macOS Mail, your work mail is already reachable.
+
+**Calendar reads the local store, not Outlook Web.** The default source is `calendar-app`, which reads Apple Calendar's local SQLite store directly — Exchange, iCloud, and CalDAV accounts all flow through it. An earlier design routed calendar through a browser-scraped Outlook Web; that was changed because reading the local store is more reliable and symmetric with how mail works.
+
+<Aside type="note" title="Why local-first sources">
+Every v1.0 source reads data that already lives on your Mac — no Graph API, no admin consent, no IT ticket. That's a deliberate stance, not a limitation; see [design principle P2](/concepts/06-design-principles/). The trade-off is honest: it reads what your OS already has access to, which is exactly the work you actually do.
+</Aside>
+
+## How `file` ties the rest together
+
+`file` is the universal kind — point it at any directory (your synced OneDrive folder, your Downloads, a project folder) and it ingests every supported format inside. It also does one quiet job for `loop`: when it walks your synced OneDrive folder and finds a `.loop` file, it doesn't try to parse that binary itself — it records a pointer and hands it to the `loop` source to resolve. That hand-off is OMem's [pointer-dispatch pattern](/concepts/06-design-principles/) (design principle P8), and the same mechanism will extend to other "pointer to a remote document" cases later.
+
+## Accounts
+
+`mail` and `calendar` can have multiple **accounts** — your work Exchange and your personal iCloud, say. During setup you choose which accounts to ingest per kind, and OMem keeps them organized separately in the wiki (`wiki/mail/<account>/…`) so a work thread never blurs into a personal one. `file` and `loop` have no account concept.
+
+## What's next
+
+Once you know *what* OMem reads, the next question is *what happens to it*. Continue to [the ingest lifecycle](/concepts/04-ingest-lifecycle/) to follow a single item from discovery to a finished, queryable wiki page.

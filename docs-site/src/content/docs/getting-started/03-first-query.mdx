@@ -1,0 +1,101 @@
+---
+title: Run your first query
+description: Ingest a little of your work, run omem query, and read your first result. Understand the output, then drill from a one-line summary down to the full page and the original file.
+---
+
+import CommandExplorer from '../../../components/CommandExplorer.tsx';
+import IngestPipeline from '../../../components/IngestPipeline.tsx';
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+**Read this if** you've finished [setup](/getting-started/02-setup-wizard/) and want to see OMem actually answer something. By the end you'll have ingested some of your work and pulled your first result back out.
+
+## Step 1 — Ingest
+
+Run one pass over the kinds you enabled:
+
+```bash
+omem ingest
+```
+
+This walks each item through the pipeline — discover it, parse it to Markdown, describe any images, curate a clean wiki page, index it. **The first run does the most work** (it's seeing everything for the first time); later runs are quick because OMem only touches what changed.
+
+<IngestPipeline client:load />
+
+<Aside type="caution" title="Don't reach for --now">
+There's a flag, `--now`, that forces a full re-scan. You don't need it here — a plain `omem ingest` already ingests everything in scope on the first run. On a large mailbox `--now` can trigger a lot of LLM calls and real cost; [the lifecycle page](/concepts/04-ingest-lifecycle/#why---now-is-expensive) explains why. For now, just `omem ingest`.
+</Aside>
+
+## Step 2 — Query
+
+Ask a question in plain language:
+
+```bash
+omem query "Q3 budget review"
+```
+
+You get a ranked list of hits — each with a relevance score, the kind of work it came from, a short page-id, and a one-line summary:
+
+<CommandExplorer client:load sessions={[{
+  command: 'omem query "Q3 budget review"',
+  output: [
+    '  [    0.910] mail     a3f9c2bd  Re: Atlas Q3 — scope sign-off',
+    '      Alice confirmed the 12% margin target; scope item 3 deferred to Q4.',
+    '  [    0.740] file     7c1e0a55  Atlas-Q3-review.pptx',
+    '      Quarterly review deck: margin scenarios A/B/C, owner Alice.',
+    '  [    0.680] calendar d9b4f201  Atlas Q3 review (Tue 10:00)',
+    '      Attendees: Alice, Bob, Carol. Agenda PDF attached.',
+  ],
+}]} />
+
+## Step 3 — Read the result
+
+Each hit is one line — `[score] kind page-id title` — with its one-line summary indented underneath:
+
+- **score** (in brackets) — how relevant OMem thinks the hit is. A rough ranking, not a verdict — skim the summaries, not just the top score.
+- **kind** — `mail` / `file` / `calendar` / `loop`, so you know what you're looking at.
+- **page-id** — a short handle (here `a3f9c2bd`) you pass to other commands.
+- **summary** — the indented line: a one-line abstract, enough to judge relevance without opening anything.
+
+To read the full page, pass its id (any 8+ character prefix works):
+
+```bash
+omem page get a3f9c2bd
+```
+
+It prints the wiki file verbatim — YAML frontmatter, then the curated body:
+
+<CommandExplorer client:load sessions={[{
+  command: 'omem page get a3f9c2bd',
+  output: [
+    '---',
+    'title: Re: Atlas Q3 — scope sign-off',
+    'kind: mail',
+    'account: you@company.com',
+    'abstract: Alice confirmed the 12% margin target; scope item 3 deferred to Q4.',
+    '---',
+    '',
+    '# Re: Atlas Q3 — scope sign-off',
+    '',
+    'Alice signed off the revised 12% margin target (up from 9%).',
+    'Bob agreed. Scope item 3 carried to Q4 at Carol’s request.',
+  ],
+}]} />
+
+And if you need the original file itself (for a `file` hit), `omem raw get <id>` prints its path. That's the [progressive-disclosure ladder](/concepts/02-progressive-disclosure/) — summary, then page, then source — each step only when you need it.
+
+<Steps>
+
+1. `omem ingest` — build the wiki
+
+2. `omem query "…"` — find the right page
+
+3. `omem page get <id>` — read it in full
+
+</Steps>
+
+## What's next
+
+You can query from the terminal — now let your AI agent do it automatically.
+
+- **[Let an AI agent use your memory](/getting-started/04-connect-an-agent/)** — Claude Code, Cursor, and others.
+- Want more `query` filters (by date, kind, account)? **[Query and search](/how-to/06-query-and-search/)**.

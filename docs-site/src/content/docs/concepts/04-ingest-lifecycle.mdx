@@ -1,0 +1,75 @@
+---
+title: The ingest lifecycle
+description: What actually happens to one item as it becomes a queryable wiki page — the six pipeline stages, incremental vs. bootstrap runs, why --now is expensive, and how deletion and revival work.
+---
+
+import IngestScrollStory from '../../../components/IngestScrollStory.tsx';
+import TombstoneTimeline from '../../../components/TombstoneTimeline.tsx';
+import { Aside } from '@astrojs/starlight/components';
+
+**Read this if** you want to understand what OMem is actually doing every few minutes — how a file becomes a wiki page, why a re-run is usually instant, why one flag can get expensive, and what happens when you delete something.
+
+## One file, four steps
+
+When OMem runs, each new or changed item flows through a pipeline. **Scroll** to follow one file from a binary blob into a page your AI can find — each step, told to its own point:
+
+<IngestScrollStory client:load />
+
+A few steps behave differently per kind (mail aggregates a thread into one page; calendar expands recurring events) — see [kinds and sources](/concepts/03-kinds-and-sources/).
+
+Two things in this pipeline are worth understanding properly, because they explain OMem's day-to-day behavior: **why a re-run is cheap**, and **why one flag isn't**.
+
+## Why re-runs are cheap: content addressing + caching
+
+OMem runs every few minutes, but it almost never repeats work. Two mechanisms make that true:
+
+- **Content addressing** (the `raw` stage): each item is fingerprinted by its content (SHA256). If the bytes haven't changed, the fingerprint matches what's already on disk, and the rest of the pipeline is skipped entirely.
+- **Curation cache**: the expensive step — the LLM call that writes the wiki page — is cached by an input hash. Add a hundred new documents and only those hundred touch the LLM. The other ten thousand are untouched.
+
+For an inbox of tens of thousands of items, that's the difference between **$10 and $5,000** in LLM spend. The cache is what makes a continuous, every-few-minutes loop economically sane.
+
+<details>
+<summary>Bootstrap vs. incremental, and what a "cursor" is</summary>
+
+The first run is a **bootstrap**: there's no cursor yet, so the source discovers everything in scope and ingests it. Every run after that is **incremental**: a per-source **cursor** records where ingestion left off (a modification-time watermark for files; a sequence position for mail/calendar). The next run only looks at items past that watermark, so a 10,000-file folder with nothing changed exits in well under a second.
+
+The cursor also tracks a **failed set** — items that errored last time (an LLM rate-limit, a transient read failure) are retried on the next run even if they're "old", so a blip doesn't permanently orphan an item.
+
+(There is no `--bootstrap` flag — that concept was retired. Bootstrap just *is* what the first run does when no cursor exists; scope is always read from your config.)
+
+</details>
+
+## Why `--now` is expensive
+
+`omem ingest --now` forgets the cursor and re-scans everything. It sounds harmless — and if nothing changed, content addressing and the curation cache keep it cheap. But here's the trap: re-scanning recomputes each item's content hash, and for mail/calendar that hash includes the item's metadata (subject line, dates, attendees). **Change even one of those and the hash changes → the curation cache misses → the LLM is called again.**
+
+On a corpus of thousands of items where many have shifting metadata, a single `--now` can mean hundreds to thousands of LLM calls — several dollars to tens of dollars. You almost never need it; the normal incremental loop already catches changes.
+
+<Aside type="caution" title="Treat --now as a deliberate, occasional action">
+Day to day, just let the scheduled loop run — it picks up new and changed items on its own. Reach for `--now` only when you have a specific reason to force a full re-scan, and expect it to cost real LLM spend.
+</Aside>
+
+## Deletion is soft, and reversible
+
+When a file disappears from your disk (or an email is deleted), OMem does **not** delete the wiki page. It tombstones it — and if the source comes back, the page revives. **Press Play** to watch the lifecycle:
+
+<TombstoneTimeline client:load />
+
+This is deliberate safety. If a sync hiccup or an accidental `rm` made a hundred files vanish, you don't want a hundred wiki pages instantly destroyed. Tombstoning keeps them, drops them out of normal query results, and waits. Only `omem lint --orphans --purge` ever truly removes them — and that's your explicit call.
+
+<details>
+<summary>The three storage layers underneath all this</summary>
+
+Everything above sits on three layers, in order of authority:
+
+- **`raw/`** — the immutable, content-addressed archive of parser output (`parsed.md` + extracted assets). Never deleted. The deterministic parser means the same file produces the same `parsed.md` years from now — which is why this archive is trustworthy and why the curation cache can hit reliably.
+- **`wiki/`** — the curated Markdown pages, generated from `raw/`. This is [the truth](/concepts/06-design-principles/): delete the indexes and they rebuild from here; delete the wiki and it rebuilds from `raw/`.
+- **the index** — FTS5 (or qmd) sitting on top of the wiki, purely to make queries fast. An opinion, not the source.
+
+The history of every page is kept too: re-ingest a changed file and the old parsed version is retained (`omem raw get … --version N`), not overwritten.
+
+</details>
+
+## What's next
+
+You've now seen the wiki get *built*. Next: [the plugin architecture](/concepts/05-plugin-architecture/) — the extension points (source, parser, index) that each stage of this pipeline plugs into, and why none of them lock you in.

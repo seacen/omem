@@ -1,0 +1,58 @@
+---
+title: Back up and migrate
+description: Move your wiki vault to a new location with omem wiki move, understand what to back up (wiki, raw archive, config), and how OMem rebuilds from those if anything is lost.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+**Read this if** you want to relocate your wiki, back OMem up, or move it to a new machine. The short version: your data is plain files in known places, and OMem can rebuild the rest from them.
+
+## What OMem stores, and where
+
+| Location | What | Back this up? |
+|---|---|---|
+| `~/omem/wiki` (`data.wiki_path`) | The curated Markdown pages — your readable memory. | **Yes** — this is the product. |
+| `~/.local/share/omem/raw` (under `data.root`) | The immutable parsed-source archive (content-addressed). | **Yes if you can** — lets the wiki rebuild without re-parsing. |
+| `~/.config/omem/config.yaml` | Your configuration. | **Yes** — small, and saves re-running setup. |
+| `~/.local/share/omem/.state` + index | Cursors and the search index. | No — these rebuild. |
+
+The layering is deliberate ([P3](/concepts/06-design-principles/)): delete the index and it rebuilds from the wiki; delete the wiki and it rebuilds from `raw/`; `raw/` is never deleted. So a backup of `wiki/` + `raw/` + `config.yaml` is a complete one.
+
+## Move the vault
+
+To relocate the wiki — onto a synced folder, into an Obsidian vault, anywhere — use `omem wiki move`, **not** a manual `mv` or a config edit. It relocates the files *and* re-points the index and any qmd collections:
+
+```bash
+omem wiki move ~/Documents/MyVault/omem --dry-run   # preview
+omem wiki move ~/Documents/MyVault/omem             # do it
+```
+
+<Aside type="caution" title="Don't hand-edit data.wiki_path">
+Editing `data.wiki_path` by hand leaves the old wiki stranded and unread — OMem will look in the new path and find nothing. `omem wiki move` is the safe path. Same for `data.root`: changing it by hand orphans the whole cache. See [the config danger note](/reference/02-config-schema/#data--high-risk).
+</Aside>
+
+## Put the wiki on a synced folder
+
+A common setup is to point the vault at a synced location so it's backed up and available across devices:
+
+```bash
+omem wiki move ~/Library/CloudStorage/OneDrive-Personal/omem-wiki
+```
+
+Now your readable memory rides your existing cloud backup. (OMem's *ingest* still runs locally on the Mac that has the sources.)
+
+## Move to a new machine
+
+1. Install OMem on the new Mac ([install](/getting-started/01-install/)).
+2. Copy over `config.yaml`, the `wiki/` folder, and (if you can) the `raw/` archive.
+3. Run `omem doctor` to check consistency, then `omem index rebuild` to rebuild the search index from the wiki.
+4. Re-grant macOS permissions (`omem setup --grant-tcc`) — permissions are per-machine.
+
+<Aside type="tip" title="Your memory is portable">
+Because everything is open files in documented locations, you're never locked in. Even if you stopped using OMem entirely, your `wiki/` folder is a readable, grep-able, version-controllable archive of your work context — it's yours.
+</Aside>
+
+## What's next
+
+- **[Edit the wiki by hand](/how-to/09-edit-wiki-manually/)** — the vault is yours to read and edit.
+- **[Configuration schema → data](/reference/02-config-schema/#data--high-risk)** — the path fields.

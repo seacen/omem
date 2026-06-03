@@ -1,0 +1,43 @@
+---
+title: 插件架构
+description: OMem 建立其上的那些扩展点——Source、Parser、Index 和 WikiStore——每一个的接口长什么样、内置了哪些实现,以及为什么它们没有一个会把你锁死。
+---
+
+import PluginGallery from '../../../../components/PluginGallery.tsx';
+import { Aside } from '@astrojs/starlight/components';
+
+如果你想知道 OMem 到底有多能扩展——它有哪几类插件、每一类下面又发了哪些、v1.0 的边界究竟划在哪——这一页讲清楚。
+
+## 插件优先,从第一天就是
+
+OMem 从一开始就是当成平台来建的:[摄入流水线](/zh-cn/concepts/04-ingest-lifecycle/) 的每一步,都插在一个第一天就定好的接口上,而且每个接口都至少配着一个真在跑、真发出去了的实现,没有一个是"以后再说"的空壳。这么做的意义,不是逼你*非得*去扩它,而是这套架构不会把你困住。你想加个 source、换个 index,或者(往后)把某个 parser 整个替掉,都不用把其余部分推倒重来。
+
+## 四个扩展点——以及每一类下面的插件
+
+扩展点一共有四**类**。**往下滚**,挨个看一遍,顺带看看 OMem 在每一类下都发了哪些具体插件:
+
+<PluginGallery client:load lang="zh" />
+
+数目得说准,因为这事太容易吹过头:**其中三类今天就能插拔**(Source、Parser、Index),**还有一类架构上定义好了、但暂作预留**(WikiStore——接口很干净,可 v1.0 只发了一个实现,没留切换的口子)。说"四个扩展点",纸面上没错;但落到能不能动手,现在能动的是三个。
+
+## 这给你带来什么
+
+- **加新 source,不必动核心。** 一个 `file` / `mail` / `calendar` / `loop` source,说白了就是 Source 接口的一个实现。往后想接 Slack、Jira、Linear,加的也是一个新 Source,parser、index、wiki 那几层一动不动。
+- **检索这一层是你选的,不是用来把你绑死的。** v1.0 默认发的是 `fts5`(SQLite FTS5 加 jieba 中文分词),是个真正好使的默认值。想要混合向量搜索?一句 `omem plugin enable qmd`,就换上一套 BM25 + 本地 embedding + 重排器的栈。它是把 fts5 整个*换掉*,不是跟它掺到一起,边界很干净,而且只重建索引,你的 wiki 半点不受影响。
+- **解析链能往前走。** 现在它是确定性的(不碰 LLM)。但接口给未来留了余地:以后可以为 file kind 插进一个 `parser-llm`,给那些更看重版面理解、不那么在意归档可复现的人用,而这不会动到流水线其余部分赖以工作的那份契约。
+
+<Aside type="note" title="为什么默认索引本来就够好">
+插件存在,是为了摆出*不一样的取舍*(快还是召回全、本地还是上云),不是为了在一个故意做弱的底子上往上补。`brew install omem` 装上的那个默认值,必须是你每天都敢信的东西——见 [设计原则 P6](/zh-cn/concepts/06-design-principles/)。`qmd` 不是"那个更好的版本",它是"那个换了套取舍的版本"。
+</Aside>
+
+## CLI 才是真正能扩展的那个面
+
+还有第五种可扩展性,它没画进那张图,因为它在更高一层:**`omem` CLI 才是那个说了算的接口,每一个 agent 集成,都只是它薄薄一层封装。** OMem 的 skill 不过是大约 30 行 shell,转头去调 `omem query`;MCP server 也一样,是给任何 MCP 客户端用的一层薄壳。agent 这一层说变就变——去年最火的 agent,明年未必还是——所以 OMem 赌的是:底下那层记忆,不该被绑死在今天这个 agent 上。这一侧的事,[从 agent 查询](/zh-cn/concepts/07-querying-from-an-agent/) 里讲。
+
+## 没什么能把你锁住
+
+正因为 wiki 就是你磁盘上一堆纯 Markdown、每种格式都是开放的,所以这套东西除了能插拔,还顺带能搬走:备份它、给它做版本控制、手动改一页、把它指到另一台机器上,都行。扩展点让*软件*保持开放,Markdown 落盘这件事让*你的数据*保持开放。Andrej Karpathy 说过,LLM 读得懂的 wiki 是 AI 原生技术栈里的一块基本构件——[设计原则 P3](/zh-cn/concepts/06-design-principles/) 正是这个想法落地的地方。
+
+## 接下来
+
+接着看 [设计原则](/zh-cn/concepts/06-design-principles/)——那八个想法,讲的是架构*为什么*长成这样,包括为什么 wiki 是真相,以及为什么解析器偏偏不用 LLM。

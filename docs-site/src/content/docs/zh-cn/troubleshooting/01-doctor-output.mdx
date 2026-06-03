@@ -1,0 +1,81 @@
+---
+title: 读懂 omem doctor
+description: omem doctor 会跑遍 OMem 知道的每一项健康检查——配置、LLM、索引、定时、磁盘、各 kind 的权限——并为每个失败项打印一条修复办法。教你怎么读它的输出、怎么对每一项检查下手。
+---
+
+import CommandExplorer from '../../../../components/CommandExplorer.tsx';
+import { Aside } from '@astrojs/starlight/components';
+
+**如果有什么不对劲、你又想要一条命令直接告诉你哪儿出了问题**，那就看这一页。`omem doctor` 是第一个该跑的——从你的配置一路查到 macOS 权限，每发现一个问题，就打印一条具体的修复办法。
+
+## 跑一下
+
+<CommandExplorer client:load lang="zh" sessions={[{
+  command: 'omem doctor',
+  output: [
+    '',
+    'OMem Doctor',
+    '─────────────────────────────────────────',
+    '[Global]',
+    '  ✓ config_schema_valid          ok',
+    '  ✓ llm_endpoint                 已连通 (anthropic-oauth)',
+    '  ✓ index_plugin                 fts5 · 1284 个页面',
+    '  ✓ wiki_vs_sql_consistency      ok',
+    '  ✗ launch_agent                 未安装',
+    '      → Fix: omem install',
+    '  ✓ sqlite_integrity             ok',
+    '  ⚠ disk_space                   剩余 6.1 GB',
+    '      → Fix: free up disk; omem lint --orphans --purge',
+    '  ✓ recent_ingest_24h            312 个事件',
+    '',
+    '[Kind: mail]',
+    '  ✗ full_disk_access             已拒绝',
+    '      → Fix: omem setup --grant-tcc',
+    '',
+    '1 个错误，1 个警告。',
+  ],
+}]} />
+
+每一行就是一项检查：一个符号（`✓` 正常 / `⚠` 警告 / `✗` 错误）、检查名、一段简短状态，再加上——有问题时——一行 `→ Fix:`，给出该跑的命令。检查项分组列在 `[Global]` 下，每个已启用的 kind 各占一块。
+
+## 全局检查
+
+| 检查项 | 它验证什么 | 常见修复办法 |
+|---|---|---|
+| `config_schema_valid` | `config.yaml` 能照当前 schema 解析得通 | `omem config migrate` |
+| `llm_endpoint` | 你的 LLM provider 配好了、也连得上 | `omem setup --llm` |
+| `index_plugin` | 当前激活的索引后端在位、可用 | `omem plugin install qmd`（如果你开了 qmd） |
+| `wiki_vs_sql_consistency` | wiki 文件和数据库对得上 | `omem index rebuild` |
+| `launch_agent` | 那个定时摄入任务装好了、也加载了 | `omem install` |
+| `sqlite_integrity` | 数据库没损坏 | 从备份恢复 |
+| `disk_space` | 还有足够空间继续摄入 | 腾空间，或 `omem lint --orphans --purge` |
+| `omem_log_present` | 日志文件存在 | `omem ingest`（首次运行时会写出它） |
+| `recent_ingest_24h` | 过去 24 小时里有东西被摄入 | `omem ingest`，或检查一下定时 |
+| `failed_count_7d` | 最近有多少条目失败了 | `omem ingest errors --since 7d` |
+
+## 各 kind 的检查
+
+每个已启用的 kind，doctor 都会加上一块。到目前为止最常见的失败，是 `mail` 和 `calendar` 上的 **macOS 权限**：
+
+| 检查项 | 它意味着什么 | 修复办法 |
+|---|---|---|
+| `full_disk_access`（mail） | 邮件需要完全磁盘访问权限，而 macOS 从不自动授予 | `omem setup --grant-tcc` |
+| 日历权限 | 旧版 macOS 上是日历隐私权限；到了 **macOS 26+**，日历需要**完全磁盘访问权限**（跟邮件一样——数据库挪进了沙箱容器里） | `omem setup --grant-tcc` |
+| roots 可达（file） | 你配的那几个文件夹存在、也读得到 | 把 `kinds.file.source_config.roots` 里的路径改对 |
+
+<Aside type="tip" title="doctor 是你的起点，不是全部地图">
+某项检查失败了，就跑它的修复办法、再重跑一遍 `omem doctor`。要是修了还不消——或者那个错误根本不在 doctor 覆盖范围里——就去看[常见错误](/zh-cn/troubleshooting/02-common-errors/)，那里列出了你可能撞见的真实错误字符串，以及每一条到底是什么意思。
+</Aside>
+
+## 给脚本用的 JSON
+
+```bash
+omem doctor --format json
+```
+
+返回的是同一批检查，但是结构化的 JSON——给那种想针对某一项失败检查报警的监控脚本用，正合适。
+
+## 接下来
+
+- **[常见错误](/zh-cn/troubleshooting/02-common-errors/)** —— 错误信息原文，连同每一条的成因和修复办法。
+- **[性能调优](/zh-cn/troubleshooting/03-performance-tuning/)** —— 如果它能用，但你觉得慢。

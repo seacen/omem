@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  OMem · favicon @ 16px — minimum-size seal.
+  Same structure as 22px (double border + OM + hairline) but stroke / weight
+  scaled up further (~2.5× of the 44px version) so identity survives sub-pixel
+  rendering.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="OMem favicon">
+  <style><![CDATA[
+    svg { color: #2B2A28; }
+    @media (prefers-color-scheme: dark) { svg { color: #F5F1E8; } }
+  ]]></style>
+  <rect x="3" y="3" width="94" height="94" rx="3" fill="none" stroke="currentColor" stroke-width="3.5"/>
+  <rect x="11" y="11" width="78" height="78" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/>
+  <text x="50" y="63" font-family="'EB Garamond', Garamond, serif" font-style="italic" font-weight="600" font-size="48" fill="currentColor" text-anchor="middle">OM</text>
+  <line x1="22" y1="79" x2="78" y2="79" stroke="currentColor" stroke-width="1.6"/>
+</svg>

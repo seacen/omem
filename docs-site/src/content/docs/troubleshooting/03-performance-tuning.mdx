@@ -1,0 +1,82 @@
+---
+title: Performance tuning
+description: When OMem works but feels slow — slow ingest, slow queries, high memory — find the bottleneck and the one knob that fixes it. LLM/VLM concurrency, qmd query modes, OCR memory, and what not to bother tuning.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+**Read this if** OMem works but feels slow, or you hit a provider rate limit, or ingest uses more memory than you'd like. Each section is a symptom → the knob that addresses it. (For the full field reference, see [the config schema](/reference/02-config-schema/); this page is the "what do I actually change" view.)
+
+## First: is it slow, or just working?
+
+Before tuning, confirm where the time goes — [`omem ingest watch`](/how-to/11-observe-ingest/#watch-a-run-live) shows each phase as it completes. A run that looks stuck is usually one of: a cold `qmd` model loading, a big PDF in OCR, or a slow Loop fetch — all expected, none worth "tuning." Tune only a *pattern* of slowness, not a one-off.
+
+## Hitting provider rate limits
+
+**Symptom:** `429 rate limit` errors during ingest; items failing and retrying.
+
+**Knob:** Lower the global LLM cap — this is the one that actually throttles API calls:
+
+```bash
+omem config set llm.global_concurrency 2     # default 4; lower further if still rate-limited
+omem config set parser.vlm_global_concurrency 2
+```
+
+These two are cross-process ceilings on simultaneous LLM / vision calls. The per-kind worker pools (`ingest.curate_concurrency`, `ingest.kind_concurrency`) raise *parallelism*, but these global caps bound *actual provider calls* — so for rate limits, lower the globals, not the pools.
+
+## Ingest feels slow overall
+
+**Symptom:** A full run takes longer than you'd like (not a single stuck item).
+
+**What's actually happening:** Most of the time is LLM curation, and that's bounded by `llm.global_concurrency`. If your provider tolerates it, *raising* it speeds ingest up:
+
+```bash
+omem config set llm.global_concurrency 16    # if your provider allows it
+```
+
+But remember most re-runs are already cheap — the [curation cache](/concepts/04-ingest-lifecycle/#why-re-runs-are-cheap-content-addressing--caching) skips unchanged items entirely. If a re-run is slow, check `omem ingest history`: lots of `recur` or `ingest` means real work; lots of `cache` means it's already fast and the wall-clock is just the unavoidable new items.
+
+## Queries feel slow
+
+**Symptom:** `omem query` takes seconds, not milliseconds.
+
+The default `fts5` index answers in ~50 ms — if *that's* slow, something else is wrong (check `omem doctor`). Slow queries almost always mean you've enabled **`qmd`**, whose modes trade speed for precision:
+
+| Mode | Speed | Use when |
+|---|---|---|
+| `bm25` | fastest | you want near-keyword speed |
+| `no-rerank` | fast (warm) | **the everyday recommendation** — semantic recall without the reranker latency |
+| `full` | slowest | maximum precision, you can absorb the reranker |
+
+```bash
+omem config set plugins.qmd.query_mode no-rerank
+```
+
+The first `qmd` query after enabling is *always* slow (it downloads ~2.2 GB of models, once). That's not a tuning problem — it's a one-time cost. See [retrieval](/concepts/08-retrieval/).
+
+## Ingest uses too much memory
+
+**Symptom:** Memory climbs on image-heavy documents.
+
+**Knob:** OCR runs in a subprocess that restarts every N images to bound memory. The default (20) is conservative; you rarely need to touch it, but if memory still climbs:
+
+```bash
+omem config set parser.ocr_subprocess_batch 10    # restart more often = lower peak
+```
+
+There's also a per-document image cap (`parser.max_images_per_doc`, default 200) that skips the long tail rather than ballooning memory — anything skipped is logged, never silent.
+
+<Aside type="tip" title="Serial mode for debugging">
+If you're chasing a problem and want readable, deterministic behavior, set everything to serial: `omem ingest -c 1`. One item at a time, no concurrency — slower, but every log line is in order.
+</Aside>
+
+## What's probably not worth tuning
+
+- **The worker pools** (`curate_concurrency` / `kind_concurrency`) — the global caps bound real cost anyway; raising the pools rarely helps and can worsen rate limits.
+- **fts5** — it's already fast; there's nothing to tune. Quality comes from `qmd`, not from tuning fts5.
+- **First-run cost** — the first ingest and the first qmd query are slow by nature (seeing everything once, downloading models once). That's not steady-state performance.
+
+## What's next
+
+- **[Configuration schema](/reference/02-config-schema/#concurrency--how-many-things-run-at-once)** — every concurrency and timeout field.
+- **[Observe ingest](/how-to/11-observe-ingest/)** — find which phase is slow before you tune.

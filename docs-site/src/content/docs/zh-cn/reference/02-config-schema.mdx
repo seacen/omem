@@ -1,0 +1,267 @@
+---
+title: 配置 schema
+description: OMem 读取的每一个 config.yaml 字段——类型、默认值、每个值是什么意思、什么时候该改。它把那些决策点（qmd 查询模式、LLM provider、curator 模式、图片策略）讲透，而不只是罗列字段名。
+---
+
+import ConfigTree from '../../../../components/ConfigTree.tsx';
+import { Aside } from '@astrojs/starlight/components';
+
+**如果你想**把 OMem 调到向导设定之外、而且不只想知道某个字段*是什么*、更想知道*它的每个值是什么意思、什么时候该选*，那就看这一页。那几个决策点——qmd 怎么搜、用哪个 LLM provider、图片怎么处理——这里给足完整解释；机械性的旋钮则用一张紧凑的表带过。
+
+## 它在哪、怎么读
+
+你的配置是一个 YAML 文件，就一份，位于：
+
+```
+~/.config/omem/config.yaml
+```
+
+（如果你设了 `$XDG_CONFIG_HOME`，那就是 `$XDG_CONFIG_HOME/omem/config.yaml`。）OMem 在首次运行时写下一份默认骨架，并在每次加载时自动把它向前迁移。
+
+**没有 `omem config schema` 这个命令**。想查看生效的配置——已校验、默认值已填好——用：
+
+```bash
+omem config show              # 生效的配置（YAML）
+omem config show --json       # 同上，但是 JSON
+omem config show --raw        # 一字不差的原文件（解析不了时很有用）
+omem config get llm.curator.model              # 读取一个值
+omem config set kinds.mail.scope.time_window.since 6m_ago   # 写入一个值
+```
+
+`config set` 对非字符串的值接受 JSON：`omem config set kinds.file.scope.exclude_patterns '["~$*", "*.tmp"]'`。
+
+## 浏览 schema
+
+整个 schema 是一棵嵌套的树。**展开一个小节、点一个字段**，就能看到它的类型、默认值和它控制什么——两个高风险字段已经标出：
+
+<ConfigTree client:load lang="zh" />
+
+这一页接下来按小节逐一过这些字段。真正有得选的，会讲全；机械性的，列表里带过。
+
+---
+
+## 决策点
+
+下面这几个字段，值的不同会实打实地改变 OMem 的行为。动手之前值得先弄懂它们。
+
+### `plugins.qmd.query_mode` — qmd 怎么搜
+
+只有在你启用了 [`qmd`](/zh-cn/concepts/08-retrieval/) 索引时才相关。它决定 qmd 跑哪几条检索路径，是在**速度和精度之间**做权衡。下面的数字是在一个很小的页（4 篇文档）上测的；冷启动和热启动之间的差距很重要，因为 embedding 和 reranker 模型是在首次使用时才懒加载的。
+
+| 值 | 跑什么 | 速度 | 什么时候选它 |
+|---|---|---|---|
+| `bm25` | 只跑 FTS5 关键词搜索——不调 LLM、不用向量。 | ~2 秒 | 你想要 qmd 的管道，但行为基本就是关键词；能多快有多快。 |
+| `vector` | 只跑向量相似度（不走关键词路径）。 | 冷启动 ~85 秒，热启动 ~3–5 秒 | 很少是最优选——丢掉关键词路径反而*降低*召回，不如 `no-rerank`。 |
+| `no-rerank` | 混合：BM25 **+** 向量 **+** LLM 查询扩展，reranker **关闭**。 | 热启动 ~4 秒 | **推荐的日常模式。**精度基本和 `full` 一样，开销却只是零头。 |
+| `full` *（默认）* | `no-rerank` **+** 一个 cross-encoder reranker（qwen3-reranker）。 | 冷启动 ~365 秒，热启动 ~5–10 秒 | 在你扛得住 reranker 冷启动时追求极致精度；在偏弱的硬件上，reranker 正是最费时的那部分。 |
+
+**实用建议：** `full` 是默认值，因为它最精确，但大多数人日常该跑的是 `no-rerank`——它保留了混合召回（找到跨语言和语义匹配的那部分），只丢掉 reranker，而后者换来的精度提升不多、却要加延迟。这样设：
+
+```bash
+omem config set plugins.qmd.query_mode no-rerank
+```
+
+<Aside type="note" title="为什么“只用向量”不是聪明的选择">
+人很容易这么想："纯向量 = 最语义 = 最好。"但实际上，只用向量会**移除** BM25 关键词路径，于是那些精确的名字、代号、发票号——正是关键词搜索最拿手的东西——就被平均掉了。`no-rerank` 把*两条*路径都跑、再融合起来，这正是它在召回上胜过 `vector` 的原因。
+</Aside>
+
+### `llm.curator.provider` / `llm.vlm.provider` — LLM 调用发到哪去
+
+OMem 从不自带模型；是你把它指向某一个。curator（文本 → wiki）和 VLM（图片 → 描述）是**各自独立**配置的，可以用不同的 provider。支持四个：
+
+| 值 | 它是什么 | 你需要 |
+|---|---|---|
+| `anthropic-oauth` *（默认）* | 通过 OAuth 用你的 Claude Pro / Max 订阅。没有 API key 要管。 | 一个 Claude 订阅；认证在 `omem setup` 里搞定。 |
+| `anthropic-api` | 直接用 Anthropic API，按 token 计费。 | 一个 `ANTHROPIC_API_KEY`。 |
+| `openai-compat` | 任何 OpenAI 兼容的端点——OpenAI、本地服务器，或一个托管网关。 | 一个 `base_url` + 一个 API key。 |
+| `openai-chatgpt-oauth` | 通过 Codex 后端用你的 ChatGPT Plus / Pro 订阅。 | 一个 ChatGPT 订阅；认证在 `omem setup` 里。 |
+
+`openai-compat` 这条路是那个逃生口：你跑一个**本地**模型（把 `base_url` 指向你的本地服务器）、或者用任何说 OpenAI API 那套话的 provider，靠的都是它。配套字段是 `base_url`、`api_key_env` 和 `api_key_keychain`。
+
+<Aside type="caution" title="千万别把 key 写进文件">
+把 API key 存在环境变量（`api_key_env`）或 macOS Keychain（`api_key_keychain`）里——绝不要内联写进 `config.yaml`。两个都设时，keychain 这条胜出。两个 OAuth provider 则一个 key 都不需要。
+</Aside>
+
+### `curator.mode.<format>` — 重写，还是逐字保留
+
+对每一种格式，curator 会以两种模式之一运行：
+
+| 值 | 它做什么 | 最适合 |
+|---|---|---|
+| `llm-full` | LLM 把文档重写成一页干净的 wiki 页（并写好摘要 + 标签）。 | 那些结构杂乱、重写确实有帮助的格式：`pdf`、`docx`、`pptx`、`xlsx`、`html`（这些是默认）。 |
+| `frontmatter-only` | 正文从解析后的源**逐字节照搬**；LLM 只写摘要 + 标签。 | 本就干净的格式：`md`、`txt`（这些是默认）。更便宜，且保留确切的结构。 |
+
+`frontmatter-only` 有个反直觉的好处：因为正文不被重写，**确切的数字和措辞得以保全**——一次完整的重写可能悄悄把 `11.3%` 圆成 `11%`，而逐字照搬不会。如果你发现 curator 在某种格式上把重要细节抹平了，把它切到 `frontmatter-only` 就是一个修法。
+
+```bash
+omem config set curator.mode.html frontmatter-only   # 不再重写 HTML 正文
+```
+
+`curator.cross_language_auto_promote`（默认 `true`）是那道安全网：如果某个 source 的语言和 `output.language` 不一致，OMem 会强制走 `llm-full`，免得你最后得到一个英文摘要下面挂着中文正文的页面。
+
+### `parser.images.<format>` — 文档里的图片怎么处理
+
+每种格式各自决定嵌在它里面的图片会怎样：
+
+| 值 | 会发生什么 | 开销 |
+|---|---|---|
+| `ocr` | 跑 OCR（RapidOCR），从图片里抽出文字。 | 便宜；对"图里有字"的情况很好用。 |
+| `vlm` | 把图片送给视觉模型，由它写一段描述。 | 每张合格图片一次 LLM 调用；最适合图表、截图、示意图。 |
+| `off` | 把图片提取到 `assets/`，但不描述它。 | 免费；图片不可被搜索到。 |
+
+这些默认值是经过权衡的：**`pdf` 默认走 `ocr`**（PDF 多半是文字，逐页视觉会为微小收益烧掉 token），而 `pptx` / `docx` / `xlsx` / `standalone` / `mail` / `calendar` 默认走 **`vlm`**（它们的图片通常本身就是内容）。一个常见的微调是 `parser.images.mail off`，跳过描述邮件签名里的装饰图：
+
+```bash
+omem config set parser.images.mail off
+```
+
+哪些图片真能通过"值得描述"那道过滤，见[文件格式](/zh-cn/reference/03-file-formats/)。
+
+### `*concurrency` — 同时跑多少东西
+
+四个旋钮控制并行度。两个 `_global_concurrency` 上限是安全阀——无论 worker 池调多高，它们都约束着同一时刻发出多少 provider 调用：
+
+| 字段 | 默认值 | 控制什么 |
+|---|---|---|
+| `llm.global_concurrency` | `4` | 整个进程里同时进行的 **LLM** 调用的硬上限。`4` 稳在 Pro/Max OAuth 的约 4–8 RPM 之下；在高配额端点上可以调高。 |
+| `parser.vlm_global_concurrency` | `3` | 同时进行的**视觉模型**调用的硬上限。 |
+| `ingest.curate_concurrency` | `2` | 单个 kind *内部*处理条目的 worker 池。 |
+| `ingest.kind_concurrency` | `2` | 多个 kind *并行*的 worker 池（file + mail + calendar 同时跑）。 |
+
+这些默认值是一条**保守的基线**，调成能在一台普通 Mac（含一台 8 GB 的 mac mini）上安全跑，不是天花板。两个 worker 池是相乘的——`kind × curate` = 同一时刻有多少条目在流水线里（这里是 2×2 = 4），这是内存占用的主要推手。两个 `global_concurrency` 上限约束实际的 provider 调用。机器宽裕、或者有个高配额 API key 时就**调高它们**（`omem config set llm.global_concurrency 16`）；撞到限流就**调低那两个全局上限**；调试时把任意一个设成 `1` 就是严格串行。四个都有环境变量覆盖（例如 `OMEM_LLM_GLOBAL_CONCURRENCY`）。
+
+### `data.root` / `data.wiki_path` — ⚠ 这两个别手改
+
+| 字段 | 默认值 | 它是什么 |
+|---|---|---|
+| `data.root` | `"~/.local/share/omem"` | 内部缓存：按内容寻址的 `raw/` 归档 + SQLite 数据库。你从不需要手动浏览它。 |
+| `data.wiki_path` | `"~/omem/wiki"` | 用户可见的 Markdown 页面库。 |
+
+:::danger[这两个别手改]
+改 `data.root` 会让每一个缓存条目变成孤儿——下一次运行找不到旧的 `raw/` 归档，等于从头来过。手改 `data.wiki_path` 会把旧 wiki 晾在原地、再也没人读。**要搬动 wiki 库，请用 [`omem wiki move`](/zh-cn/reference/01-cli-commands/)**——它会把文件挪过去*并且*把索引重新指向。这是仅有的两个会让你的数据被弃置的字段。
+:::
+
+---
+
+## 其余字段，按小节
+
+剩下的字段都是机械性的——设一次，几乎不再回头看。
+
+### 顶层
+
+| 字段 | 类型 | 默认值 | 说明 |
+|---|---|---|---|
+| `config_version` | int | `1` | 用于迁移的 schema 版本锚点。 |
+| `active_index` | `"fts5" \| "qmd"` | `"fts5"` | 当前生效的索引后端。用 `omem plugin enable` 切换它，别手改。 |
+| `output.language` | `"auto" \| "zh" \| "en"` | `"auto"` | curator 写页面用的语言。`auto` 跟随源文档；`zh`/`en` 则强制指定。 |
+
+### `llm`（provider 之外）
+
+| 字段 | 类型 | 默认值 | 说明 |
+|---|---|---|---|
+| `llm.curator.model` | str | `""` | 模型名。有意留空——由向导填。 |
+| `llm.curator.base_url` | str \| null | `null` | `openai-compat` 的端点覆盖。 |
+| `llm.curator.api_key_env` | str \| null | `null` | 存放 API key 的环境变量名。 |
+| `llm.curator.api_key_keychain` | str \| null | `null` | 存放 key 的 Keychain 账户（service 为 `omem-llm`）。优先级高于 `api_key_env`。 |
+| `llm.curator.fallback_model` | str \| null | `"claude-opus-4-8"` | 仅 OAuth 时，当 prompt 超过下面那个阈值时用的回退模型。 |
+| `llm.curator.fallback_token_threshold` | int | `180000` | 触发回退模型的 token 数。 |
+| `llm.curator.max_output_tokens` | int \| null | `null` | 输出 token 的硬上限；`null` 用 provider/模型默认值。 |
+| `llm.vlm.*` | — | — | 和 `llm.curator.*` 一样的字段，用于视觉模型。 |
+
+### `parser`（图片之外）
+
+| 字段 | 类型 | 默认值 | 说明 |
+|---|---|---|---|
+| `parser.max_images_per_doc` | int 1–10000 | `200` | 每篇文档的 OCR/VLM 图片上限；超出的会被提取但不描述（有日志，绝不静默）。 |
+| `parser.ocr_subprocess_batch` | int 0–1000 | `20` | 每 N 张图片重启一次 OCR worker 以约束内存。`0` 关闭隔离（仅调试用）。 |
+
+### `ingest`（并发之外）
+
+| 字段 | 类型 | 默认值 | 说明 |
+|---|---|---|---|
+| `ingest.formats.{pdf,docx,pptx,xlsx,md,txt,html,image}` | bool | `true` | 按格式的总开关，应用到**每一个** source——设成 `false` 就永不摄入该格式，包括附件。 |
+
+### `schedule`
+
+| 字段 | 类型 | 默认值 | 说明 |
+|---|---|---|---|
+| `schedule.interval_minutes` | int | `0` | `omem install` 用的间隔。由向导设定；`0` 表示关闭自动摄入。`omem install` 会读它——你不必再以 flag 形式重复一遍。 |
+
+### `setup`
+
+| 字段 | 类型 | 默认值 | 说明 |
+|---|---|---|---|
+| `setup.wizard_language` | `"zh" \| "en"` | `"zh"` | onboarding 界面语言。英文用户在向导第一步切换。 |
+
+### `plugins.qmd`（query_mode 之外）
+
+只有在 `omem plugin install qmd` 之后才存在；否则为 `null`。
+
+| 字段 | 类型 | 默认值 | 说明 |
+|---|---|---|---|
+| `plugins.qmd.subprocess_timeout_sec` | int | `600` | 单次调用的超时。`600` 够一次热启动的 full 模式运行；冷启动的 full 模式重建则调到 `3600`。Env：`OMEM_QMD_SUBPROCESS_TIMEOUT_SEC`。 |
+| `plugins.qmd.index_name` | str | `"omem"` | qmd collection 的命名空间（把 OMem 的索引和其他 qmd 用户隔开）。 |
+| `plugins.qmd.executable_path` | str | （安装时填入） | `qmd` 二进制的路径。 |
+
+### `kinds.{file,mail,calendar,loop}`
+
+每个 kind 出厂都是 **`enabled: false`**——全新安装在向导打开某个 kind 之前什么都不摄入。
+
+#### `kinds.file`
+
+| 字段 | 类型 | 默认值 | 说明 |
+|---|---|---|---|
+| `kinds.file.enabled` | bool | `false` | |
+| `kinds.file.source` | str | `"local-files"` | |
+| `kinds.file.source_config.roots` | list[str] | `[]` | 要摄入的文件夹。向导会自动探测 OneDrive / iCloud / Dropbox / Documents。 |
+| `kinds.file.scope.max_file_size_mb` | int | `50` | 跳过大于此值的文件。 |
+| `kinds.file.scope.exclude_patterns` | list[str] | `["~$*", ".DS_Store", "node_modules/**"]` | Glob 排除规则。 |
+| `kinds.file.scope.failed_quarantine_cap` | int | `200` | 重试失败列表大小的上限。 |
+| `kinds.file.tombstone_mode` | `full_sweep \| skip` | `"full_sweep"` | `full_sweep` 每次运行都重新检查删除；`skip` 则为超大、慢盘的语料库关掉它。 |
+
+#### `kinds.mail`
+
+| 字段 | 类型 | 默认值 | 说明 |
+|---|---|---|---|
+| `kinds.mail.enabled` | bool | `false` | |
+| `kinds.mail.source` | str | `"mail-app"` | Apple Mail 的本地存储。Outlook source 是 v1.5+ 的事。 |
+| `kinds.mail.source_config.accounts` | list[str] | `[]` | 要摄入的账号。 |
+| `kinds.mail.scope.time_window.since` | time-str | `"3m_ago"` | 往回追多远。语法见下。 |
+| `kinds.mail.scope.time_window.until` | time-str \| null | `null` | 上界；`null` = 不设上界。 |
+| `kinds.mail.scope.folders` | list[str] | `["inbox", "sent"]` | 小写的语义化文件夹名。 |
+| `kinds.mail.scope.max_messages_per_account` | int | `5000` | |
+| `kinds.mail.scope.include_attachments` | bool | `true` | |
+| `kinds.mail.scope.max_attachment_size_mb` | int | `50` | |
+| `kinds.mail.tombstone_mode` | `full_sweep \| skip` | `"full_sweep"` | |
+
+#### `kinds.calendar`
+
+| 字段 | 类型 | 默认值 | 说明 |
+|---|---|---|---|
+| `kinds.calendar.enabled` | bool | `false` | |
+| `kinds.calendar.source` | str | `"calendar-app"` | Apple Calendar 的本地存储——**不是** Outlook Web。 |
+| `kinds.calendar.scope.time_window.since` | time-str | `"3m_ago"` | |
+| `kinds.calendar.scope.time_window.until` | time-str | `"3m_from_now"` | 对称的时间窗：最近的过去 + 临近的未来。 |
+| `kinds.calendar.scope.include_recurring_instances` | bool | `true` | 把循环事件的每一次发生都展开。 |
+| `kinds.calendar.scope.max_events_per_account` | int | `5000` | |
+| `kinds.calendar.scope.calendars` | list[str] \| null | `null` | 子日历白名单；`null` = 全部子日历。 |
+| `kinds.calendar.scope.include_attachments` | bool | `true` | |
+| `kinds.calendar.tombstone_mode` | `full_sweep \| skip` | `"full_sweep"` | |
+
+#### `kinds.loop`
+
+| 字段 | 类型 | 默认值 | 说明 |
+|---|---|---|---|
+| `kinds.loop.enabled` | bool | `false` | |
+| `kinds.loop.source` | str | `"loop-resolver"` | |
+| `kinds.loop.source_config.chromium_profile_dir` | str | `"~/.config/omem/sessions/browser-profile"` | 用于 SSO 的持久化浏览器 profile。 |
+| `kinds.loop.scope.max_fetch_concurrency` | int | `2` | 并发抓取 Loop 页面的数量。 |
+
+<Aside type="note" title="since / until 的语法">
+时间窗字段接受：相对锚点 `N{d,w,m,y}_ago` / `N{d,w,m,y}_from_now`（例如 `3m_ago`、`2w_from_now`）、一个 ISO 日期（`2026-01-01`），或一个 ISO 日期时间。其余一律在加载时被拒——一个拼写错误会响亮地报错，而不是悄悄把你的时间窗放宽。
+</Aside>
+
+## 接下来
+
+- **[CLI 命令](/zh-cn/reference/01-cli-commands/)**——读取这份配置的那些命令。
+- **[文件格式](/zh-cn/reference/03-file-formats/)**——`parser.images.*`、`ingest.formats.*` 和 `curator.mode.*` 按格式是怎么组合的。

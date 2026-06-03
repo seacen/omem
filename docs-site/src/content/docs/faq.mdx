@@ -1,0 +1,94 @@
+---
+title: FAQ
+description: Frequently asked questions about OMem — licensing and commercial use, platform support, privacy, the qmd dependency, how it compares to other tools, and what's coming.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Short answers to the questions people ask most. For how-to detail, see the [guides](/how-to/01-ingest-files/); for the why, see [concepts](/concepts/01-what-is-omem/).
+
+## Licensing and commercial use
+
+### Is OMem free? What about using it at work?
+
+OMem is under the **PolyForm Noncommercial License 1.0.0**. It's **free** for personal, academic, research, and non-profit use. **Commercial use requires a license** — and per PolyForm, "commercial" explicitly includes using it for your for-profit employer's internal work. If you want to use OMem in a company context, [reach out](mailto:xichangzhao@outlook.com) — that's a conversation worth having.
+
+### Why is OMem closed-source?
+
+The retrieval, parsing, and curation pipeline is a large body of work, and v1.0 ships as a source-available, closed binary rather than open source. The **wiki it produces is fully open** — plain Markdown on your disk that you own and can read, edit, grep, and version-control — so you're never locked in even though the engine isn't open.
+
+## Platforms
+
+### Does it run on Windows or Linux?
+
+**Not in v1.0** — OMem is **available on macOS today**. It depends on macOS-specific pieces (launchd scheduling, the local Mail/Calendar stores). **Windows is coming**: the cross-platform groundwork is researched and the core pipeline is already pure Python; it's a v1.5+ target. Linux follows the same path.
+
+### Can it run fully offline?
+
+Retrieval is **100% local** — search, page reads, and parsing never touch the network. The one network call is **LLM curation at ingest time**, which goes to whichever provider you configured. You can point that at a **local model** (via the `openai-compat` provider), which works today; the caveat is that curation quality depends on the model. Fully-offline, work-grade quality is a v1.5 goal.
+
+## Privacy &amp; data
+
+### Is my data really all local?
+
+Yes. Your wiki is plain files in a folder you choose; the index and archive are local SQLite + files. Nothing is uploaded, no telemetry is collected. The only thing that leaves your machine is the **curator prompt + document text** sent to your chosen LLM at ingest — and if that's a local model, even that stays on-device.
+
+### What happens to my data if OMem goes away?
+
+Nothing is trapped. Your wiki is a folder of Markdown files you can keep using, reading, and searching with any tool — Finder, `grep`, Obsidian, git — with or without OMem. The format is open by design ([design principle P3](/concepts/06-design-principles/)).
+
+## Setup &amp; dependencies
+
+### How do I grant macOS permissions? Mail (or calendar) isn't working.
+
+Mail needs **Full Disk Access**, which macOS never grants automatically — and on **macOS 26+** so does calendar (its database moved into a sandboxed container, so it's now gated like mail). Run `omem setup --grant-tcc` — it detects your version, opens System Settings, and highlights the `omem` binary to add. See [common errors → permissions](/troubleshooting/02-common-errors/#macos-permissions-tcc--fda).
+
+### Do I need qmd? Should I install it?
+
+Strictly required, no — but **we recommend it.** The built-in `fts5` index works out of the box and is fast, but it's keyword-only: it finds pages that share your literal words (with first-class Chinese segmentation). `qmd` is where search really comes alive — it adds **multi-path retrieval** (BM25 + vector embeddings + query expansion + reranking), so it matches by *meaning*, handles cross-language queries, and is markedly more accurate on real, messy work. The cost is one-time: a separate binary and ~2.2 GB of local models on first use, all running on your machine. If you're deciding, install qmd — `fts5` is the dependable fallback, not the better experience. See [retrieval](/concepts/08-retrieval/) for how it works.
+
+### What does ingest actually cost in LLM calls?
+
+Curation calls the LLM **once per new or changed item** — and the [curation cache](/concepts/04-ingest-lifecycle/#why-re-runs-are-cheap-content-addressing--caching) means unchanged items cost nothing on re-runs. So total cost tracks "how much new content," not "how many times you ran ingest." A steady mailbox costs little after the initial pass; the expensive case is forcing a full re-scan with `--now`.
+
+## How it compares
+
+### How is this different from mem0 / Letta / Zep?
+
+Those are **chat-memory** SDKs — they remember what was *said* to an agent. OMem reads your **actual work**: emails, documents, calendar, meeting notes. Different problem. See [what OMem is not](/concepts/01-what-is-omem/#what-omem-is-not).
+
+### How is this different from Microsoft 365 Copilot / Glean?
+
+Those are enterprise products requiring IT deployment and admin consent, and their index only feeds *their* assistant. OMem is local-first (no IT ticket), and its memory feeds **any** agent you use — Claude Code today, whatever you switch to next. Copilot can reach your M365 data but tops out at "assist"; OMem hands context to agents that can actually *do the work*.
+
+### How is this different from Obsidian / Notion?
+
+Those store what you **manually** put in them. OMem **auto-ingests** the work already scattered across your machine — the inbox you live in, the synced OneDrive folder — without you re-typing anything.
+
+### How is this different from OpenViking?
+
+OpenViking (ByteDance) is the closest neighbor on the technical axes — it *is* local-first and agent-agnostic, and OMem even borrowed its tiered context-loading idea. The difference is decisive: you feed content into OpenViking programmatically, whereas OMem **auto-ingests the real work already on your machine** — your inbox, your synced folders, your PDFs. See [what OMem is not](/concepts/01-what-is-omem/#what-omem-is-not).
+
+### How is this different from GBrain?
+
+GBrain shares the philosophy — markdown-as-memory, agent-agnostic — but it's bring-your-own-markdown: you write the notes. OMem builds the wiki *for* you, from your actual office work.
+
+## Roadmap
+
+### When is &lt;feature&gt; coming?
+
+The two headline efforts after v1.0:
+
+- **A graphical interface** — v1.0 is CLI-first; a proper desktop UI (so you don't live in the terminal) is the biggest piece of work ahead.
+- **An entity wiki — Layer 2** — today every page is rooted in one source. The schema already reserves a second layer: pages distilled *across* sources into one per person, project, or topic, with graph-style relationships linking them back to the evidence. This is a flagship direction, not a footnote — the groundwork (`layer` / `source_backlinks` columns) ships in v1.0.
+
+Also on the way:
+
+- **Windows / Linux** — the cross-platform groundwork is researched and the core pipeline is already pure Python.
+- **More mail sources** — Outlook Classic / Outlook on the Web / AppleScript, beyond today's Mail.app.
+- **More sources** — Slack, Jira, and other tools where work lives.
+- **Cross-device sync** — on the list, not in v1.0.
+
+## Still stuck?
+
+Run [`omem doctor`](/troubleshooting/01-doctor-output/) first — it catches most problems and prints a fix. Then check [common errors](/troubleshooting/02-common-errors/). For anything else, the [GitHub issue tracker](https://github.com/seacen/omem/issues) is the place.

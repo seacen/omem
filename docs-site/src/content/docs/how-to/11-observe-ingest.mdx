@@ -1,0 +1,148 @@
+---
+title: Observe ingest
+description: See what OMem is doing — active and past runs, per-item outcomes, failures, and logs. Tell "slow" from "stuck", drill into one item's history, and cancel a run that's wedged.
+---
+
+import CommandExplorer from '../../../components/CommandExplorer.tsx';
+import { Aside } from '@astrojs/starlight/components';
+
+**Read this if** ingest is running and you want to know what's happening — what succeeded, what failed, whether a long run is making progress or actually stuck. OMem records every run in an events table; these commands read it.
+
+## See the current state
+
+`omem ingest status` shows the active run (if any) plus the latest finished one:
+
+<CommandExplorer client:load sessions={[{
+  command: 'omem ingest status',
+  output: [
+    'Active run(s):',
+    '  run e8053467  kind=file  source=local-files',
+    '    Currently in: parse',
+    '    Breakdown:    raw 640  parse 812  curate 480  wiki 478',
+    '',
+    'Latest finished:',
+    '  run a1f9c0d2  kind=mail  source=mail-app',
+    '    finished 2026-06-02 14:30  duration=4m12s',
+    '    ingest 88  cache 410  recur 0  fail 0',
+  ],
+}]} />
+
+## The four outcomes
+
+Those counters (`ingest` / `cache` / `recur` / `fail`) are the four outcomes every item ends in — worth recognizing:
+
+| Counter | Outcome | Meaning |
+|---|---|---|
+| `ingest` | `ingested` | New or changed — fully processed, LLM called. |
+| `cache` | `curator_cache_hit` | Unchanged since last time — **no LLM call**, page left as-is. Why re-runs are cheap. |
+| `recur` | `recurated` | Re-processed because the curation prompt version changed. |
+| `fail` | `failed` | Errored — see `omem ingest errors`. |
+
+A run that's mostly `cache` is OMem working efficiently, not doing nothing.
+
+## See past runs
+
+`omem ingest history` is a table, one row per run:
+
+<CommandExplorer client:load sessions={[{
+  command: 'omem ingest history',
+  output: [
+    'run_id     started              kind      ingest cache recur fail skip  parse  vlm_t curate    duration  outcome',
+    '-------------------------------------------------------------------------------------------------------------------',
+    'e8053467   2026-06-02 14:45     file         640   160     0   12    0   38.1   12.4   84.0   (running)  running',
+    'a1f9c0d2   2026-06-01 09:00     mail          88   410     0    0    0    0.0    0.0   52.3      4m12s   done',
+    'b30e7711   2026-05-31 09:00     file         204   980     0    3    0   71.2   20.1  150.6      9m03s   done',
+  ],
+}]} />
+
+## Watch a run live
+
+`omem ingest watch` tail-follows the events table — every phase of every item prints as a line the moment it happens, newest at the bottom (like `tail -f`). Press Ctrl+C to stop:
+
+<CommandExplorer client:load sessions={[{
+  command: 'omem ingest watch',
+  output: [
+    '[2026-06-02 14:46:01] file/local-files raw            ok       .../Atlas-Q3-review.pptx 40ms',
+    '[2026-06-02 14:46:02] file/local-files parse          ok       .../Atlas-Q3-review.pptx 1180ms',
+    '[2026-06-02 14:46:05] file/local-files vlm            ok       .../Atlas-Q3-review.pptx 3100ms',
+    '[2026-06-02 14:46:08] file/local-files curate         ingested .../Atlas-Q3-review.pptx 2800ms',
+    '[2026-06-02 14:46:08] file/local-files wiki           ok       .../Atlas-Q3-review.pptx 12ms',
+    '[2026-06-02 14:46:09] file/local-files curate         cache_hit .../Q2-actuals.xlsx',
+    '[2026-06-02 14:46:12] file/local-files curate         failed   .../big-deck.pptx 30200ms',
+  ],
+}]} />
+
+Each line is `[timestamp] kind/source <phase> <status> <item> <elapsed>`. You can filter to specific phases (`--phase parse,curate`) or one kind (`--kind mail`), and tune the poll interval (`--poll 2`). It's the best way to see *where* a slow item is spending its time — watch which phase's line is slow to arrive.
+
+## Investigate failures
+
+`omem ingest errors` lists what failed, with the error message:
+
+<CommandExplorer client:load sessions={[{
+  command: 'omem ingest errors',
+  output: [
+    '✗ 2026-06-02 14:46  kind=file  source=local-files  run=e8053467',
+    '    item:    .../Acme/big-deck.pptx',
+    '    outcome: failed @curate (rate_limit)',
+    '    error:   429 rate limit exceeded — retry after 30s',
+    '    → omem log tail --grep 9f2a1c',
+  ],
+}]} />
+
+Failed items are retried automatically on the next run — so a transient blip (a rate-limit, a momentary read failure) resolves itself without you doing anything.
+
+## Drill into one item — without re-ingesting
+
+`omem ingest item <uri>` traces one item's history:
+
+<CommandExplorer client:load sessions={[{
+  command: 'omem ingest item "~/OneDrive/Atlas-Q3-review.pptx"',
+  output: [
+    'Item: ~/OneDrive/Atlas-Q3-review.pptx',
+    'Latest run: a1f9c0d2',
+    '',
+    'Phase trace (latest run):',
+    '  ✓0.4   raw',
+    '  ✓1.2   parse',
+    '  ✓3.1   vlm     (3 images described)',
+    '  ✓2.8   curate  → ingested',
+    '',
+    'Historical runs (last 2):',
+    '  run_id     started              final           phase_failed',
+    '  a1f9c0d2   2026-06-01 09:00     ingested        -',
+    '  e8053467   2026-06-02 14:45     cache_hit       -',
+  ],
+}]} />
+
+<Aside type="note" title="Investigating never costs you">
+`omem ingest item` is a *query* over the recorded events — it never triggers an ingest or an LLM call. Drilling into "what happened to this file" is always free.
+</Aside>
+
+## Stuck, or just slow?
+
+If a run looks frozen, find out which it is before doing anything:
+
+1. **`omem ingest watch`** — are new events still arriving? Then it's working, just slow (a big PDF, a cold qmd model loading, a slow Loop fetch).
+2. **`omem log tail -f`** — follow the log live; add `--grep <text>` to filter.
+3. **`omem log errors --since 1h`** — recent errors across runs.
+
+## Cancel a wedged run
+
+If a run is genuinely stuck (not just slow), stop it:
+
+```bash
+omem ingest cancel              # cancel the active run (asks to confirm)
+omem ingest cancel e8053467     # cancel a specific run by id prefix
+omem ingest cancel --all        # cancel every active run
+```
+
+Cancel sends a graceful stop (SIGTERM) and falls back to a hard kill if needed (`--force` skips the grace period; `--yes` skips the confirmation). It's safe: a cancelled run doesn't advance its cursor for unfinished work, so the **next scheduled run picks up exactly where it left off** — nothing is lost or double-processed. This is the command to reach for when an ingest is blocking you and you'd rather restart it.
+
+<Aside type="caution" title="Cancel, don't kill -9">
+Use `omem ingest cancel` rather than killing the process yourself. Cancel writes a clean stop record and releases the lock so the next run starts normally; a raw `kill` can leave a stale lock that makes the next run think one is already active.
+</Aside>
+
+## What's next
+
+- **[The ingest lifecycle](/concepts/04-ingest-lifecycle/)** — what the phases mean.
+- **[Schedule ingest](/how-to/08-launchd-schedule/)** — automate it, then watch it here.

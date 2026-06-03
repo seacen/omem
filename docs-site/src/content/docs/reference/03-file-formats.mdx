@@ -1,0 +1,96 @@
+---
+title: File formats
+description: Every format OMem can ingest — PDF, Office (docx/pptx/xlsx), Markdown, text, HTML, email, calendar, images — which library parses it, how images inside it are handled, and how it's curated into a wiki page.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+**Read this if** you want to know exactly what `omem ingest` can read, which engine handles each format, and how images, OCR, and the curator behave per format. The parser chain is a [first-order design concern](/concepts/06-design-principles/) — not an afterthought — so this page is specific about what each format gets.
+
+## The format matrix
+
+Three independent settings shape what happens to a file: the **parser** that turns it into Markdown, the **image policy** for pictures inside it, and the **curator mode** that writes the final wiki page. Here's every format and its defaults:
+
+| Format | Parser library | Image default | Curator default |
+|---|---|---|---|
+| **PDF** | pymupdf4llm (layout) + RapidOCR | `ocr` | `llm-full` |
+| **DOCX** | python-docx | `vlm` | `llm-full` |
+| **PPTX** | python-pptx | `vlm` | `llm-full` |
+| **XLSX** / .xls / .xlsm / .ods | calamine (tables) + openpyxl (images) | `vlm` | `llm-full` |
+| **Markdown** | pass-through (verbatim) | — | `frontmatter-only` |
+| **Plain text** / CSV / TSV / JSON | pass-through | — | `frontmatter-only` |
+| **HTML** | BeautifulSoup + markdownify | — | `llm-full` |
+| **Email** (.eml / .msg) | stdlib `email` / extract-msg | `vlm` (inline) | — *(mail kind)* |
+| **Calendar** (.ics) | icalendar | — | — *(calendar kind)* |
+| **Images** (png/jpeg/gif/webp/tiff/emf) | Pillow (+ LibreOffice for EMF/WMF) | `vlm` | — |
+
+Two controls in that table are configurable per format — see [`parser.images.*`](/reference/02-config-schema/#parserimagesformat--how-images-inside-a-document-are-handled) and [`curator.mode.*`](/reference/02-config-schema/#curatormodeformat--rewrite-or-keep-verbatim), where each value is explained in full. A third, [`ingest.formats.*`](/reference/02-config-schema/#ingest-beyond-concurrency), is a master on/off switch for each format across every source. This page is the *format-by-format* view; the config page is the *value-by-value* view.
+
+<Aside type="note" title="Three switches, three jobs">
+- **`ingest.formats.<fmt>`** — *whether* this format is ingested at all (default: all `true`).
+- **`parser.images.<fmt>`** — *how* images inside it are handled: `ocr`, `vlm`, or `off`.
+- **`curator.mode.<fmt>`** — *how* it becomes a wiki page: `llm-full` (rewrite) or `frontmatter-only` (verbatim body + abstract).
+
+They're orthogonal. Turning images `off` for PDFs doesn't stop PDFs from being ingested; it just skips describing the pictures.
+</Aside>
+
+## What each format gets
+
+### Office documents — keeping the images
+
+The thing that separates OMem from "convert to text and lose everything visual" tools is that it **keeps images and describes them**.
+
+- **PDF** uses pymupdf4llm with layout preservation. Embedded images run through OCR by default (PDFs are mostly text, so per-page vision would burn tokens for little gain); a page with almost no extractable text is treated as scanned and flagged for vision instead.
+- **DOCX / PPTX / XLSX** parse with the deterministic Office libraries, and embedded images default to `vlm` — a vision model writes a description in place. Slide pictures, chart images, and embedded screenshots become searchable text rather than vanishing.
+
+### Markdown, text, and data files — left alone
+
+Markdown, plain text, CSV, TSV, and JSON are passed through **verbatim** — no LLM rewrites the body. They're already structured, so the curator runs in `frontmatter-only` mode: it writes an abstract and tags, and copies the body byte-for-byte. (A counter-intuitive payoff: the verbatim body keeps exact numbers and structure that a full rewrite might smooth over.)
+
+### Email and calendar — rendered as one page
+
+Email and calendar aren't "files" in the `file` sense; they're the `mail` and `calendar` [kinds](/concepts/03-kinds-and-sources/). An email thread is rendered into a single page (headers, body, inline images), and attachments are parsed recursively through this same matrix — a PDF attached to an email gets the PDF treatment. Calendar events render with time, location, organizer, and attendees.
+
+### Images — described, and EMF handled
+
+A standalone image file is described by the vision model. **EMF/WMF** (the vector format Office loves to embed) is converted to PNG first — Pillow attempts it, and LibreOffice's headless `soffice` is the reliable fallback — so those images don't become dead ends.
+
+## How images get described: OCR vs. VLM
+
+When `parser.images.<fmt>` is `vlm`, an image is sent to the vision model **only if it's worth it**. OMem filters out decoration first, so you don't pay to describe icons and spacers:
+
+| Context | Sent to the vision model when… |
+|---|---|
+| Standalone image file | always (unless either side < 100 px) |
+| PowerPoint slide image | displayed size ≥ 80 px per edge **and** not a sub-200×200 stamp |
+| Word paragraph image | always (a picture on its own line is content) |
+| Word inline image | both sides ≥ 200 px (smaller = icon) |
+| Excel cell image | always (Excel images are rarely decorative) |
+| Email/calendar inline image | ≥ 5 KB **or** ≥ 100×100 px (skips tracking pixels & signature art) |
+
+<Aside type="note" title="Why there's no area-percentage rule">
+An earlier design gated slide images on how much of the slide they covered (40% → 25% → 10%). It kept mis-firing — a 7%-area chat-log screenshot was core content, not decoration — so the area rule was removed in favor of the display-size filters above. The bet: vision calls are cheap enough that it's better to describe a borderline image than to drop a meaningful one.
+</Aside>
+
+**OCR** (the default for PDFs) uses RapidOCR, which handles mixed Chinese/English text well. To keep memory bounded on image-heavy documents, OCR runs in a subprocess that restarts every `parser.ocr_subprocess_batch` images, and a per-document cap (`parser.max_images_per_doc`, default 200) skips the long tail rather than ballooning memory — anything skipped is logged, never silently dropped.
+
+## Turning a format off
+
+To stop ingesting a format everywhere — say you never want spreadsheets indexed:
+
+```bash
+omem config set ingest.formats.xlsx false
+```
+
+To keep ingesting a format but stop describing its images (e.g. skip email signature art):
+
+```bash
+omem config set parser.images.mail off
+```
+
+Both take effect on the next run. Existing pages aren't deleted — they're just not refreshed for that format.
+
+## What's next
+
+- **[Configuration schema](/reference/02-config-schema/)** — the full `parser.images.*`, `ingest.formats.*`, and `curator.mode.*` fields.
+- **[The ingest lifecycle](/concepts/04-ingest-lifecycle/)** — where parsing and image description sit in the pipeline.

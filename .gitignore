@@ -17,6 +17,13 @@ build/
 __pycache__/
 *.pyc
 
+# docs-site (Astro) generated output + deps
+node_modules/
+.astro/
+docs-site/dist/
+docs-site/node_modules/
+docs-site/.astro/
+
 # Local dev
 .env
 .env.local

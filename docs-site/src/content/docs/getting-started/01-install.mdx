@@ -1,0 +1,75 @@
+---
+title: Install OMem
+description: Install the omem CLI on macOS with Homebrew or a one-line curl script, and confirm it runs. The first of four steps to get OMem working end to end.
+---
+
+import CommandExplorer from '../../../components/CommandExplorer.tsx';
+import { Aside, Tabs, TabItem, Steps } from '@astrojs/starlight/components';
+
+**Read this if** you just heard about OMem and want to try it. By the end of this page you'll have the `omem` command installed and verified — about two minutes. The next three pages get you from "installed" to "my agent can answer questions about my work."
+
+OMem is **available on macOS today; Windows is coming.** It's a single command-line tool — one binary, no Python to manage, no account to create.
+
+## The friendly path: let your agent install it
+
+If you already use an AI agent like Claude Code, the simplest install is to **let it read the instructions and run them for you**. Open your agent and say:
+
+> "Install OMem from github.com/seacen/omem and run me through the setup."
+
+It'll do everything on this page and the next. If you'd rather do it by hand — or you want to understand each step — read on.
+
+## Install by hand
+
+<Steps>
+
+1. **Install the binary.** Pick one:
+
+   <Tabs>
+     <TabItem label="Homebrew (recommended)">
+     ```bash
+     brew install seacen/omem/omem
+     ```
+     Homebrew handles updates later with `brew upgrade omem`.
+     </TabItem>
+     <TabItem label="curl">
+     ```bash
+     curl -fsSL https://omem.app/install.sh | sh
+     ```
+     Installs to `~/.local/bin/omem`. Make sure that's on your `PATH`.
+     </TabItem>
+   </Tabs>
+
+2. **Verify it runs:**
+
+   ```bash
+   omem version
+   ```
+
+   You should see a version line print. That's it — the tool is installed.
+
+3. **Continue to [setup](/getting-started/02-setup-wizard/)** to connect your data and pick an LLM.
+
+</Steps>
+
+<CommandExplorer client:load sessions={[{
+  command: 'omem version',
+  output: ['omem 1.0.0'],
+}]} />
+
+<Aside type="note" title="No PyPI, no pip, no source build">
+OMem ships as a single compiled binary. You won't `pip install` it, clone a repo, or manage a virtualenv — `brew` (or the curl script) gives you one executable and that's the whole install. Upgrades come through the same channel.
+</Aside>
+
+<details>
+<summary>Why it's unsigned, and what that means for you</summary>
+
+The macOS binary is **unsigned** (not notarized by Apple). The two install paths handle this for you: the `curl` script downloads without the quarantine flag, and the Homebrew formula strips it — so you won't hit a Gatekeeper "unidentified developer" wall. This is a deliberate v1.0 choice (code-signing has real overhead for a solo project); nothing about it changes how OMem runs. If you ever download the binary some other way and macOS blocks it, removing the quarantine attribute (`xattr -dr com.apple.quarantine /path/to/omem`) clears it.
+
+</details>
+
+## What's next
+
+You have the tool; now connect it to your work.
+
+- **[Run the setup wizard](/getting-started/02-setup-wizard/)** — pick what to ingest and which LLM curates it. ~5 minutes.
+- Curious what you just installed? **[What is OMem?](/concepts/01-what-is-omem/)** explains the idea.

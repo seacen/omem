@@ -1,0 +1,125 @@
+---
+title: Common errors
+description: The error messages you might actually hit — LLM auth, ingest arguments, macOS permissions, mail returning nothing, Loop fetch failures, qmd cold start — each with its cause and fix. Searchable by the exact string.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+**Read this if** OMem printed an error and you want to know what it means and how to fix it. Each entry below quotes the message you'd see, so you can `Ctrl+F` the exact string. Start with [`omem doctor`](/troubleshooting/01-doctor-output/) if you haven't — it catches most of these and prints the fix inline.
+
+## LLM and authentication
+
+### `api_key is empty — set the env var named by llm.*.api_key_env`
+
+**Cause:** You're using an API-key provider (`anthropic-api` or `openai-compat`) but the environment variable named in your config isn't set (or is empty).
+
+**Fix:** Export the key in the env var your config points to, or store it in the Keychain and set `api_key_keychain`. Re-run setup if you're unsure: `omem setup --llm`.
+
+### `Claude Code OAuth credentials not found in Keychain`
+
+**Cause:** You picked the `anthropic-oauth` provider, but there's no Claude OAuth token in your Keychain yet.
+
+**Fix:** Run Claude Code at least once (it writes the credential), then `omem setup --llm`. OMem refreshes the token on its own afterward; if a refresh fails later, re-run `omem setup --llm`.
+
+<Aside type="note" title="Rate limits and refusals retry on their own">
+A transient `429 rate limit` or an OAuth token that expired mid-run doesn't need action — the failed item is retried on the next ingest. You'll see it in `omem ingest errors`; it usually clears itself.
+</Aside>
+
+## Ingest arguments
+
+These are caught immediately when you mistype a flag:
+
+| Message | Fix |
+|---|---|
+| `Error: no kinds enabled in cfg.kinds.*.enabled — run omem setup` | Nothing is turned on. Run `omem setup`, or `omem config set kinds.<k>.enabled true`. |
+| `Error: --vlm-mode must be auto\|always\|never, got X` | Use one of the three values. |
+| `Error: --concurrency must be 1..32, got N` | Pick a value in range. |
+| `Error: --kind must be one of file/mail/calendar/loop, got X` | Check the kind name. |
+| `Error: --source can only be used with a specific --kind` | Add `--kind` when you pass `--source`. |
+
+## macOS permissions (TCC / FDA)
+
+### `Mail envelope requires Full Disk Access (FDA)`
+
+**Cause:** Reading Apple Mail needs Full Disk Access, and macOS **never** prompts for it automatically. This is the single most common "mail ingests nothing" cause.
+
+**Fix:**
+```bash
+omem setup --grant-tcc
+```
+This opens System Settings → Privacy & Security → Full Disk Access and highlights the `omem` binary — drag it into the list (or toggle it on).
+
+### Calendar ingests nothing / `requires Calendars permission`
+
+**Cause:** Calendar needs a macOS permission, and **which one depends on your macOS version:**
+
+- **macOS ≤ 12:** the **Calendars** privacy permission (a normal prompt).
+- **macOS 26 (Tahoe) and newer:** the Calendar database moved into a sandboxed group container, so it now needs **Full Disk Access** — same as mail. macOS never prompts for FDA, so this is the most common "calendar ingests nothing on a new Mac" cause.
+
+**Fix:** `omem setup --grant-tcc` detects your version and walks you through the right one. On macOS 26 that means adding the `omem` binary to Full Disk Access by hand (System Settings → Privacy & Security → Full Disk Access).
+
+<Aside type="caution" title="Works in Terminal but fails on the schedule?">
+If mail/calendar works when you run `omem` yourself but the **scheduled** job ingests nothing, it's almost always FDA: the launchd job runs as `omem` with no Terminal to inherit permissions from. Add the **`omem` binary itself** to Full Disk Access (not Terminal). See [the setup wizard's permission note](/getting-started/02-setup-wizard/#granting-macos-access).
+</Aside>
+
+## Mail returns nothing
+
+Not always an error message — sometimes ingest just produces zero mail pages. Walk these in order:
+
+1. **Full Disk Access** — the cause above. Run `omem doctor`; if the mail block shows `✗ full_disk_access`, fix that first.
+2. **Time window too narrow** — the default reaches back 3 months. Widen it: `omem config set kinds.mail.scope.time_window.since 1y_ago`.
+3. **Folder names** — defaults are `inbox` + `sent`. If your mail is elsewhere, add folders: `omem config set kinds.mail.scope.folders '["inbox", "sent", "archive"]'`.
+4. **Account filter** — if you set `source_config.accounts`, make sure the address matches exactly.
+
+Confirm with `omem source status --kind mail` (shows the cursor and what it scanned).
+
+## Loop fetch failures
+
+Loop has the most moving parts (OneDrive sync + a browser session), so it has specific errors:
+
+### `LoopSyncEngineDbNotFound`
+
+**Cause:** OneDrive's sync database isn't where OMem expects — usually OneDrive isn't running or isn't signed in.
+
+**Fix:** Start OneDrive and let it sign in and sync, then re-run `omem ingest --kind loop`.
+
+### `LoopFetchTimeout`
+
+**Cause:** The SharePoint page didn't render in the browser within the timeout (slow network, or a very large page).
+
+**Fix:** Retry; if it persists on one page, the page may be unusually large or your connection slow.
+
+### Session expired / sign-in no longer valid
+
+**Cause:** The saved browser session aged out.
+
+**Fix:**
+```bash
+omem setup --browser
+```
+Re-signs in and saves a fresh session. (Remember Loop fetches from **SharePoint** — if a note's SharePoint permissions changed, OMem can't resolve it even with a valid session.)
+
+## qmd is slow on the first run
+
+**Symptom:** After enabling `qmd`, the first `omem ingest` or `omem query` hangs for a long time — possibly minutes.
+
+**Cause:** `qmd` lazily downloads ~2.2 GB of local models on first use, and a cold reranker load is slow.
+
+**Fix:** This is expected once. Let it finish; subsequent runs are fast. If a cold full-mode run times out, raise the ceiling: `omem config set plugins.qmd.subprocess_timeout_sec 3600`. For everyday speed, `no-rerank` mode is much faster — see [query modes](/reference/02-config-schema/#pluginsqmdquery_mode--how-qmd-searches).
+
+## EMF/WMF images aren't described
+
+**Symptom:** Charts or SmartArt pasted into Office docs show up as a placeholder, not a description.
+
+**Cause:** These are EMF/WMF vector images; OMem converts them to PNG with LibreOffice, which isn't installed.
+
+**Fix:**
+```bash
+brew install --cask libreoffice
+```
+Everything else still ingests without it; only these vector images are skipped.
+
+## What's next
+
+- **[Reading omem doctor](/troubleshooting/01-doctor-output/)** — the health check that catches most of these.
+- **[Performance tuning](/troubleshooting/03-performance-tuning/)** — if it works but feels slow.

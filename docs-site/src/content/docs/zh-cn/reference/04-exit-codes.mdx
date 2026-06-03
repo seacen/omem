@@ -1,0 +1,65 @@
+---
+title: 退出码
+description: 每个 omem 退出码（0–6）是什么意思、哪些命令会返回它、在 shell 脚本里怎么根据它分支。外加 omem install status 单独用的那套 plist 状态码。
+---
+
+import ExitCodeTable from '../../../../components/ExitCodeTable.tsx';
+import { Aside } from '@astrojs/starlight/components';
+
+**如果你在围着 `omem` 写脚本**——一个 cron 包装、一个 CI 步骤、一条 `&&` 链——需要根据某个命令是成功了、什么都没找到、还是因为某个具体原因失败了来分支，那就看这一页。每个 `omem` 命令都以七个码之一退出，而且它们在任何地方都是同一个意思。
+
+## 这七个码
+
+`omem` 用的是一套小而固定的契约：**0 是成功，1 是通用失败，2–6 各自对应一种值得单独处理的具体情形**。**点一下某个码**，看哪些命令会返回它、又究竟是什么触发了它：
+
+<ExitCodeTable client:load lang="zh" />
+
+最容易把人绊倒的，是**结果为空时的 `0`**。`omem query "没人写过的东西"` 什么都没查到，照样以 `0` 退出——因为"零命中"是一个有效的答案，不是错误。要想检测空结果，去看输出（`--format json` 会给你一个计数），别看退出码。
+
+## 在脚本里根据码分支
+
+这些码是稳定的，所以你可以直接照着它们写：
+
+```bash
+omem query "Q3 budget" --format json > hits.json
+case $? in
+  0) echo "query ran (may be empty — check hits.json)" ;;
+  2) echo "index not ready — run: omem index rebuild" ;;
+  6) echo "bad argument — check --since / --format" ;;
+  *) echo "query failed" ;;
+esac
+```
+
+查一个页面时，这几个具体的码能让你分清*不存在*、*有歧义*和*格式不对*：
+
+```bash
+omem page get a3f9c2bd
+case $? in
+  0) : ;;                # 页面已打印
+  3) echo "prefix matched several pages — add more characters" ;;
+  4) echo "no such page" ;;
+  6) echo "prefix too short (need ≥8 chars)" ;;
+esac
+```
+
+<Aside type="tip" title="完整契约就写在一个文件里">
+这七个码在源码里只定义一处，并由测试套件强制约束，所以它们在各个版本之间不会漂移。你要是在围着 `omem` 做自动化，跨版本升级都能放心依赖它们。
+</Aside>
+
+## `omem install status` 是个例外
+
+有一个命令**不**走这套契约：`omem install status` 报的是**那个定时摄入的 launchd 任务的状态**，它的 0–3 码是另一套意思。
+
+| 码 | `omem install status` 的含义 |
+|---|---|
+| `0` | 已安装、已加载、上次运行以 0 退出、近期有摄入事件——健康。 |
+| `1` | launchd plist **没有安装**。 |
+| `2` | 已安装，但 launchctl **没有加载**它。 |
+| `3` | 已安装且已加载，但上次运行失败了，**或者** 24 小时内一个摄入事件都没有。 |
+
+所以 `omem install status; echo $?` 就是一句话的健康探针，监控脚本可以拿去轮询——只要记住它的码描述的是*那个定时计划*，不是上面那套通用的成功/失败契约。
+
+## 接下来
+
+- **[CLI 命令](/zh-cn/reference/01-cli-commands/)** —— 完整的命令参考，包括每个命令吃哪些 flag。
+- **[配置 schema](/zh-cn/reference/02-config-schema/)** —— `config.yaml` 的每一个字段、它的默认值，以及哪些改了会有风险。

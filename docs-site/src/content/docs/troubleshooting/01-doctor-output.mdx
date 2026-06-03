@@ -1,0 +1,81 @@
+---
+title: Reading omem doctor
+description: omem doctor runs every health check OMem knows — config, LLM, index, schedule, disk, per-kind permissions — and prints a fix for each failure. How to read its output and act on each check.
+---
+
+import CommandExplorer from '../../../components/CommandExplorer.tsx';
+import { Aside } from '@astrojs/starlight/components';
+
+**Read this if** something isn't working and you want one command that tells you what's wrong. `omem doctor` is the first thing to run — it checks everything from your config to your macOS permissions and prints a concrete fix for each problem it finds.
+
+## Run it
+
+<CommandExplorer client:load sessions={[{
+  command: 'omem doctor',
+  output: [
+    '',
+    'OMem Doctor',
+    '─────────────────────────────────────────',
+    '[Global]',
+    '  ✓ config_schema_valid          ok',
+    '  ✓ llm_endpoint                 reachable (anthropic-oauth)',
+    '  ✓ index_plugin                 fts5 · 1284 pages',
+    '  ✓ wiki_vs_sql_consistency      ok',
+    '  ✗ launch_agent                 not installed',
+    '      → Fix: omem install',
+    '  ✓ sqlite_integrity             ok',
+    '  ⚠ disk_space                   6.1 GB free',
+    '      → Fix: free up disk; omem lint --orphans --purge',
+    '  ✓ recent_ingest_24h            312 events',
+    '',
+    '[Kind: mail]',
+    '  ✗ full_disk_access             denied',
+    '      → Fix: omem setup --grant-tcc',
+    '',
+    '1 error, 1 warning.',
+  ],
+}]} />
+
+Each line is one check: a symbol (`✓` ok / `⚠` warning / `✗` error), the check name, a short status, and — when there's a problem — a `→ Fix:` line with the command to run. Checks are grouped under `[Global]` and one block per enabled kind.
+
+## The global checks
+
+| Check | What it verifies | Typical fix |
+|---|---|---|
+| `config_schema_valid` | `config.yaml` parses against the current schema | `omem config migrate` |
+| `llm_endpoint` | Your LLM provider is configured and reachable | `omem setup --llm` |
+| `index_plugin` | The active index backend is present and usable | `omem plugin install qmd` (if you enabled qmd) |
+| `wiki_vs_sql_consistency` | The wiki files and the database agree | `omem index rebuild` |
+| `launch_agent` | The scheduled-ingest job is installed and loaded | `omem install` |
+| `sqlite_integrity` | The database isn't corrupt | restore from backup |
+| `disk_space` | Enough free space to keep ingesting | free space, or `omem lint --orphans --purge` |
+| `omem_log_present` | The log file exists | `omem ingest` (writes it on first run) |
+| `recent_ingest_24h` | Something ingested in the last 24h | `omem ingest`, or check the schedule |
+| `failed_count_7d` | How many items failed recently | `omem ingest errors --since 7d` |
+
+## The per-kind checks
+
+For each enabled kind, doctor adds a block. The most common failure by far is **macOS permission** on `mail` and `calendar`:
+
+| Check | What it means | Fix |
+|---|---|---|
+| `full_disk_access` (mail) | Mail needs Full Disk Access, which macOS never grants automatically | `omem setup --grant-tcc` |
+| Calendar permission | Calendars privacy permission on older macOS; on **macOS 26+** Calendar needs **Full Disk Access** (same as mail — the DB moved into a sandboxed container) | `omem setup --grant-tcc` |
+| roots reachable (file) | Your configured folders exist and are readable | fix the path in `kinds.file.source_config.roots` |
+
+<Aside type="tip" title="doctor is your starting point, not the whole map">
+If a check fails, run its fix and re-run `omem doctor`. If the fix doesn't clear it — or the error is something doctor doesn't cover — head to [common errors](/troubleshooting/02-common-errors/), which lists the actual error strings you might see and what each one means.
+</Aside>
+
+## JSON for scripts
+
+```bash
+omem doctor --format json
+```
+
+Returns the same checks as structured JSON — useful for a monitoring script that wants to alert on a specific failed check.
+
+## What's next
+
+- **[Common errors](/troubleshooting/02-common-errors/)** — error messages, verbatim, with the cause and fix for each.
+- **[Performance tuning](/troubleshooting/03-performance-tuning/)** — if it works but feels slow.

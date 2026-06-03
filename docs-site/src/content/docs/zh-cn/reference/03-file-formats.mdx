@@ -1,0 +1,96 @@
+---
+title: 文件格式
+description: OMem 能摄入的每一种格式——PDF、Office（docx/pptx/xlsx）、Markdown、纯文本、HTML、邮件、日历、图片——分别由哪个库解析、里面嵌的图片怎么处理、整理成 wiki 页时又怎么走。
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+**如果你想**确切知道 `omem ingest` 都能读哪些东西、每种格式归哪个引擎管、图片和 OCR 与整理器在各格式下分别怎么表现，那就看这一页。解析链是一个[第一等的设计考量](/zh-cn/concepts/06-design-principles/)，不是事后才补的边角料——所以这一页会把每种格式到底能拿到什么，讲得很具体。
+
+## 格式总览表
+
+一个文件被怎么处理，由三组互不相干的设置决定：把它转成 Markdown 的**解析器（parser）**、对里面图片生效的**图片策略**，以及写出最终 wiki 页的**整理器模式（curator mode）**。下面是每种格式连同它的默认值：
+
+| 格式 | 解析库 | 图片默认 | 整理器默认 |
+|---|---|---|---|
+| **PDF** | pymupdf4llm（保留版式）+ RapidOCR | `ocr` | `llm-full` |
+| **DOCX** | python-docx | `vlm` | `llm-full` |
+| **PPTX** | python-pptx | `vlm` | `llm-full` |
+| **XLSX** / .xls / .xlsm / .ods | calamine（表格）+ openpyxl（图片） | `vlm` | `llm-full` |
+| **Markdown** | 原样直通（逐字保留） | — | `frontmatter-only` |
+| **纯文本** / CSV / TSV / JSON | 原样直通 | — | `frontmatter-only` |
+| **HTML** | BeautifulSoup + markdownify | — | `llm-full` |
+| **邮件**（.eml / .msg） | 标准库 `email` / extract-msg | `vlm`（内联图） | — *（mail kind）* |
+| **日历**（.ics） | icalendar | — | — *（calendar kind）* |
+| **图片**（png/jpeg/gif/webp/tiff/emf） | Pillow（EMF/WMF 另加 LibreOffice） | `vlm` | — |
+
+表里有两个开关可以按格式单独调——见[配置 schema](/zh-cn/reference/02-config-schema/) 里的 `parser.images.*` 和 `curator.mode.*`，那里把每个取值都讲全了。第三个开关 `ingest.formats.*` 是个总闸，管某种格式在所有 source 上的整体开关。这一页给的是*逐格式*的视角；配置页给的是*逐取值*的视角。
+
+<Aside type="note" title="三个开关，各管一摊">
+- **`ingest.formats.<fmt>`** —— 这种格式*要不要*摄入（默认全是 `true`）。
+- **`parser.images.<fmt>`** —— 里面的图片*怎么*处理：`ocr`、`vlm`，还是 `off`。
+- **`curator.mode.<fmt>`** —— 它*怎么*变成一页 wiki：`llm-full`（重写）或 `frontmatter-only`（正文逐字保留 + 摘要）。
+
+三者彼此独立。把 PDF 的图片设成 `off`，并不会让 PDF 不被摄入；只是不再去描述里面的图片而已。
+</Aside>
+
+## 每种格式分别能拿到什么
+
+### Office 文档——图片不丢
+
+OMem 跟那种"转成文本、视觉信息全丢光"的工具最大的区别，就是它**把图片留下来并描述出来**。
+
+- **PDF** 走 pymupdf4llm，保留版式。嵌进去的图片默认走 OCR（PDF 大多是文字，对每一页都上视觉模型会白烧不少 token、收益却很小）；要是某一页几乎抽不出文字，就当它是扫描件，转去走视觉模型。
+- **DOCX / PPTX / XLSX** 由确定性的 Office 库解析，里面嵌的图片默认走 `vlm`——视觉模型就地写一段描述。这样一来，PPT 里的图、图表截图、贴进去的屏幕截图都变成了可搜索的文字，而不是凭空消失。
+
+### Markdown、文本、数据文件——原样不动
+
+Markdown、纯文本、CSV、TSV、JSON 都是**逐字直通**——没有任何 LLM 去重写正文。它们本来就结构清晰，所以整理器跑在 `frontmatter-only` 模式：只写一段摘要和标签，正文逐字节照搬。（这里有个反直觉的好处：逐字保留的正文，把精确的数字和结构都留住了，而一次彻底重写反倒可能把这些抹平。）
+
+### 邮件和日历——渲染成一整页
+
+邮件和日历不是 `file` 意义上的"文件"，它们是 `mail` 和 `calendar` 这两个 [kind](/zh-cn/concepts/03-kinds-and-sources/)。一整条邮件线程会渲染成单独一页（信头、正文、内联图片），附件则递归地走这同一张总览表——一份作为邮件附件的 PDF，照样按 PDF 的方式处理。日历事件渲染时带上时间、地点、组织者和与会人。
+
+### 图片——描述出来，EMF 也能搞定
+
+一个独立的图片文件，由视觉模型描述。**EMF/WMF**（Office 特别爱往里嵌的那种矢量格式）会先转成 PNG——Pillow 先试，LibreOffice 那个无头的 `soffice` 是更靠得住的兜底——这样这些图就不会变成死胡同。
+
+## 图片怎么被描述出来：OCR 还是 VLM
+
+当 `parser.images.<fmt>` 设成 `vlm`，一张图**只在值得的时候**才送去视觉模型。OMem 会先把装饰性的图筛掉，省得你为描述图标和占位间隔花冤枉钱：
+
+| 场景 | 在什么条件下送去视觉模型 |
+|---|---|
+| 独立图片文件 | 总是送（除非任意一边 < 100 px） |
+| PowerPoint 幻灯片里的图 | 显示尺寸每边 ≥ 80 px **且** 不是小于 200×200 的小图章 |
+| Word 段落图（独占一行） | 总是送（独占一行的图就是内容） |
+| Word 内联图 | 两边都 ≥ 200 px（更小的算图标） |
+| Excel 单元格图 | 总是送（Excel 里的图很少是装饰） |
+| 邮件/日历内联图 | ≥ 5 KB **或** ≥ 100×100 px（跳过追踪像素和签名档美化图） |
+
+<Aside type="note" title="为什么没有按面积百分比的规则">
+早先的设计是按图片占幻灯片多大面积来卡（40% → 25% → 10%）。它老是误判——一张只占 7% 面积的聊天记录截图明明是核心内容、不是装饰——所以这条面积规则被拿掉了，换成上面那套按显示尺寸来筛的办法。背后的判断是：视觉模型的调用已经够便宜了，与其漏掉一张有意义的图，不如把那种模棱两可的图也描述出来。
+</Aside>
+
+**OCR**（PDF 的默认选择）用的是 RapidOCR，它对中英文混排处理得很好。为了在图片密集的文档上把内存控制住，OCR 跑在一个子进程里、每处理 `parser.ocr_subprocess_batch` 张图就重启一次；另有一个按文档计的上限（`parser.max_images_per_doc`，默认 200），与其让内存一路膨胀，不如把长尾的那些图跳过——任何被跳过的都会写进日志，绝不会悄没声地丢掉。
+
+## 关掉某种格式
+
+想在所有地方都不再摄入某种格式——比如你压根不想给表格建索引：
+
+```bash
+omem config set ingest.formats.xlsx false
+```
+
+想继续摄入某种格式、但不再描述它里面的图片（比如跳过邮件签名档的美化图）：
+
+```bash
+omem config set parser.images.mail off
+```
+
+两者都在下一次跑的时候生效。已有的页面不会被删——只是那种格式的页面不再被刷新了。
+
+## 接下来
+
+- **[配置 schema](/zh-cn/reference/02-config-schema/)** —— `parser.images.*`、`ingest.formats.*`、`curator.mode.*` 这几组字段的完整说明。
+- **[摄入生命周期](/zh-cn/concepts/04-ingest-lifecycle/)** —— 解析和图片描述在整条流水线里处在哪一环。

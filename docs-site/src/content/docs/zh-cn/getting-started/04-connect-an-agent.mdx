@@ -1,0 +1,98 @@
+---
+title: 让 AI agent 用上你的记忆
+description: 把 OMem 接到 Claude Code(一个 plugin)或任何支持 MCP 的 agent(Cursor、Cline、OpenClaw…),让它自动去查你的工作上下文——再不用提醒它"你还有这么一份历史"。
+---
+
+import QueryFlow from '../../../../components/QueryFlow.tsx';
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+在用 AI agent,想让它*自动*伸手够到你的工作上下文——不用你粘邮件,也不用你叮嘱一句"去 OMem 查一下"?看这一页。这才是最值的回报:agent 自己就从你真实的历史里把答案给出来。
+
+## 它长什么样
+
+接上之后,agent 一认出这是个带工作味的问题,就去查 OMem,只读它要的那点,然后作答——引用的是你真实的邮件、文档和笔记。**一步步走一遍真实的来回:**
+
+<QueryFlow client:load lang="zh" />
+
+关键在于:你不用开口叫它去用 OMem。是它自己察觉到问题沾着你的工作,主动伸的手。
+
+## 三种接法
+
+挑跟你 agent 对得上的那一种。
+
+<Tabs>
+  <TabItem label="Skill(推荐)">
+
+  最完整的一种集成,给那些带 skill / plugin 机制的 agent——**Claude Code、Codex、Claw Hub**。skill 给的不只是几个裸工具,还有何时触发的判断、以及一路往下钻的流程。先确认 `omem` CLI 装好、也配好了([安装](/zh-cn/getting-started/01-install/) → [setup](/zh-cn/getting-started/02-setup-wizard/))。
+
+  在 **Claude Code** 里:
+
+  ```
+  /plugin marketplace add seacen/omem
+  /plugin install omem@seacen-marketplace
+  ```
+
+  在 **Codex** 和 **Claw Hub** 里,从它们各自的 plugin 体系装上 OMem 的 plugin——还是同一个 skill,只是换了一道前门。([各 agent 的完整步骤](/zh-cn/how-to/07-agent-integrations/)。)
+
+  想验证装好没?问 agent 一句*"帮我看看 OMem 健康状况"*——它应该会去跑 `omem doctor`。
+
+  </TabItem>
+  <TabItem label="MCP(兜底)">
+
+  给那些**没有**原生 skill 机制的 agent(Cursor、Cline、Continue、Zed),OMem 的 CLI 能起一个 stdio 的 **MCP server**(`omem mcp`),开出同样这六个工具。一条配置就接上了:
+
+  **Cursor**——`.cursor/mcp.json`(或者 Settings → MCP Servers):
+  ```json
+  {
+    "mcpServers": {
+      "omem": { "command": "omem", "args": ["mcp"] }
+    }
+  }
+  ```
+
+  **Cline、Continue、Zed**——做法一样:`command: "omem"`、`args: ["mcp"]`,填进那个 agent 的 MCP 配置里。(要是你的 agent *本来就*支持 skill,那还是优先用 skill——你能拿到触发判断和往下钻的引导,这些是裸 MCP 那条配置给不了的。)
+
+  </TabItem>
+  <TabItem label="纯 CLI">
+
+  根本不用什么集成。任何能跑 shell 命令的 agent 都能用 OMem——它本来就是个 CLI:
+
+  ```bash
+  omem query "what did Alice say about Q3 scope" --format json
+  ```
+
+  skill 和 MCP server,不过是在这条命令外头套了薄薄一层壳。你的 agent 只要会 `bash`,这会儿就已经能查 OMem 了。
+
+  </TabItem>
+</Tabs>
+
+## agent 能做什么、不能做什么
+
+skill 和 MCP server 开出的是**同样这六个只读工具**:
+
+| 工具 | 干什么 |
+|---|---|
+| `query` | 在你所有建好索引的工作里做排序搜索 |
+| `page_get` | 完整的 wiki 页(frontmatter + 正文) |
+| `raw_get_path` | 原始源文件的路径(file 类) |
+| `raw_get_parsed_path` | 解析后源文的路径(带版本历史) |
+| `wiki_ls` | 按类别 / source / 账号 / 日期翻页面 |
+| `doctor` | OMem 健康检查 |
+
+<Aside type="note" title="agent 永远改不了你的数据">
+setup、ingest、重建索引、purge——这些一概不开放给 agent。它们都该是你在终端里慎重去做的、属于人的动作。agent 自始至终只*读*,所以哪怕把 OMem 的访问权交给它,它也改不动配置、删不掉任何东西。一个守规矩的 agent 怎么用这几个工具,见 [从 agent 查询](/zh-cn/concepts/07-querying-from-an-agent/)。
+</Aside>
+
+<details>
+<summary>CLI 才是真正的接口——其余都是薄壳</summary>
+
+skill(也就是你在 Claude Code 里装的那个 plugin)是一层小小的壳,转头去调 `omem query`。MCP server 则是个干同样事的薄进程。两者都没重新实现任何东西——一个人在终端里敲,和一个 agent 隔着 plugin 调,跑的是*一模一样*的命令,拿到一模一样的结果。这是有意这么设计的:agent 这一层年年在变,所以 OMem 让底下那层记忆只认一个稳定的 CLI,而不认任何一个具体的 agent。你随时换 agent,记忆照样在。([设计原则 P5](/zh-cn/concepts/06-design-principles/)。)
+
+</details>
+
+## 接下来
+
+从一无所有,到一个记得住你工作的 agent——你已经走完这一程了。再往下:
+
+- **[How-to 指南](/zh-cn/how-to/01-ingest-files/)**——摄入更多来源、调搜索、定时跑、做备份。
+- **[概念](/zh-cn/concepts/01-what-is-omem/)**——OMem 为什么长成现在这个样子。

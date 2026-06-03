@@ -1,0 +1,80 @@
+---
+title: Ingest mail
+description: Ingest your email from Apple Mail's local store on macOS. Grant Full Disk Access, choose accounts, folders, and a time window, and OMem aggregates each thread into one wiki page.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+**Read this if** you want OMem to ingest your email. On macOS it reads Apple Mail's local store (`mail-app`) — which already holds the mail your Exchange / IMAP accounts sync down — so there's no browser automation and no Graph API.
+
+<Aside type="note" title="Outlook accounts work through Apple Mail">
+If you've configured your work Exchange account in macOS Mail, your work mail is already in Apple Mail's local store and reachable. Dedicated Outlook sources (`outlook-classic`, `outlook-web`) are designed but deferred to v1.5+; in v1.0, `mail-app` is the mail source.
+</Aside>
+
+## Step 1 — Grant Full Disk Access
+
+Mail lives in a protected location, so OMem needs **Full Disk Access** — and macOS never prompts for it automatically:
+
+```bash
+omem setup --grant-tcc
+```
+
+This opens System Settings → Privacy & Security → Full Disk Access and reveals the `omem` binary so you can add it. **Add `omem` itself**, not Terminal — see [the setup wizard's permission note](/getting-started/02-setup-wizard/#granting-macos-access) for why this matters for scheduled runs.
+
+## Step 2 — Configure scope
+
+<Steps>
+
+1. **Accounts** — which mail accounts to ingest (empty = all configured):
+
+   ```bash
+   omem config set kinds.mail.source_config.accounts '["you@company.com"]'
+   ```
+
+2. **Folders** — defaults to inbox + sent; widen if you want:
+
+   ```bash
+   omem config set kinds.mail.scope.folders '["inbox", "sent", "archive"]'
+   ```
+
+3. **Time window** — how far back to reach (default 3 months):
+
+   ```bash
+   omem config set kinds.mail.scope.time_window.since 6m_ago
+   ```
+
+4. **Enable and ingest:**
+
+   ```bash
+   omem config set kinds.mail.enabled true
+   omem ingest --kind mail
+   ```
+
+</Steps>
+
+## One thread, one page
+
+OMem aggregates **an entire email thread into a single wiki page** — not one page per message. A 6-message back-and-forth becomes one coherent page with the full exchange, which is both cheaper (one curation call) and far more useful to query than six fragments. Attachments inside the thread are parsed too, each through its [format's parser](/reference/03-file-formats/).
+
+## Other scope knobs
+
+| Setting | Default | What it does |
+|---|---|---|
+| `kinds.mail.scope.max_messages_per_account` | `5000` | Cap per account. |
+| `kinds.mail.scope.max_message_size_mb` | `50` | Skip messages larger than this (a metadata-only line is kept). |
+| `kinds.mail.scope.include_attachments` | `true` | Ingest attachments. |
+| `kinds.mail.scope.max_attachment_size_mb` | `50` | Skip larger attachments (metadata-only line kept). |
+
+## Confirm it worked
+
+```bash
+omem query "something you remember discussing" --kind mail
+omem wiki ls --kind mail
+```
+
+Getting zero results? See **[mail returns nothing](/troubleshooting/02-common-errors/#mail-returns-nothing)** — usually FDA, a too-narrow time window, or a folder name mismatch.
+
+## What's next
+
+- **[Ingest calendar](/how-to/03-ingest-calendar/)** — same local-first approach for events.
+- **[Mail returns nothing](/troubleshooting/02-common-errors/#mail-returns-nothing)** — the common fixes.

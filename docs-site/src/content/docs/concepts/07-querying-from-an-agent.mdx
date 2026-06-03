@@ -1,0 +1,64 @@
+---
+title: Querying from an agent
+description: How an AI agent actually uses OMem to answer a question — skim L0, read L1, drill only if needed, and what a well-behaved agent does on a miss. Skill vs. MCP, and the read-only guarantee.
+---
+
+import QueryFlow from '../../../components/QueryFlow.tsx';
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+**Read this if** you want to see OMem from the agent's side — how Claude Code (or any agent) reaches your work context, and what "using it well" looks like turn by turn.
+
+## Watch an agent answer
+
+Everything in the other pages exists so an agent can do this. **Step through** a real query — the agent skims, reads just what it needs, and answers from your actual history:
+
+<QueryFlow client:load />
+
+The shape to notice: the agent **starts cheap and goes deep only on demand**. It skims L0 abstracts, opens one page at L1, and stops there — because L1 had the answer. That's [progressive disclosure](/concepts/02-progressive-disclosure/) doing its job.
+
+## The agent does the reranking — that's the craft
+
+This is the part that's easy to miss. `omem query` returns hits ranked by the index score — but that score is **candidate generation, not a verdict**. It's good at finding *plausibly* related pages; it has no idea what you mean by "the document", who you actually care about, or which of several similar pages is the right version. The agent does.
+
+So a well-instructed agent treats the abstracts — not the score — as the real signal:
+
+1. **Cast a wide net.** `omem query --limit 20` for a generous candidate pool.
+2. **Read every abstract** (each ~100 tokens; 20 ≈ 2k total — cheap).
+3. **Pick the 1–3 whose abstracts genuinely match** the intent — often skipping the top hit, as the transcript above showed.
+4. Only then open those at L1.
+
+It's also **aggressive about triggering and honest about missing**: when a question even *might* touch your work, it queries first and decides afterward (a 0-result query is cheap; a missed hit is expensive). If the first pool looks thin — top scores low, abstracts off-topic — it does one honest retry: reword with synonyms, drop filters, bump to `--limit 50`. Only then does it accept a miss and answer from general knowledge, never inventing a citation.
+
+<Aside type="note" title="It follows threads depth-first">
+The Skill doesn't stop at the first page. After reading one, if the body mentions a term, project, or name the agent doesn't yet understand, it's guided to **search again** — drilling like a depth-first search, resolving each unknown in turn until it has enough to actually answer your question. Memory you recurse through, not just look up once.
+</Aside>
+
+## Skill or MCP — same capability
+
+How the agent reaches `omem` depends only on which agent you use. Both are thin wrappers over the same CLI:
+
+<Tabs>
+  <TabItem label="Skill">
+    A Skill — a thin wrapper whose instructions teach the agent when to trigger, how to rerank abstracts, when to retry, and when to drill deeper. Any agent that supports Skills can use it; it triggers automatically when your question looks work-related and stays out of the way when it doesn't. This is the path for most users.
+  </TabItem>
+  <TabItem label="MCP">
+    An MCP server (`omem mcp`) exposing the same query tools to any MCP client — Cursor, Cline, OpenClaw, Hermes, and others. One line in the agent's config, zero extra dependencies. Same capability, different transport.
+  </TabItem>
+</Tabs>
+
+The agent layer is volatile — this year's favorite isn't next year's — so OMem deliberately doesn't bind your memory to any one agent ([the CLI is the only interface](/concepts/06-design-principles/)). Switch agents; the memory persists.
+
+## Why a Skill at all — so you never have to ask
+
+OMem is just a CLI, so any agent could already shell out to it. The Skill exists for two reasons that matter:
+
+- **It loads itself when the conversation turns to work.** You don't have to say "use OMem" or remind the agent your context exists. The Skill's description teaches the agent to recognize a work-flavored question — a colleague's name, a project, a past decision — and reach for `omem query` on its own. Forgetting to ask is the failure mode it removes.
+- **It teaches the agent to query *well*.** Left alone, an agent would run one query, trust the top score, and stop. The Skill encodes the craft this page describes: cast a wide net, read the abstracts, rerank by judgment, retry on a thin pool, follow threads depth-first, cite the source. That guidance is the whole point.
+
+The Skill (and the MCP server) are scoped to **querying** — that's what they're for. If an agent ever needs to do something else with OMem, it doesn't need a special tool: it reads `omem --help` like any CLI and discovers the rest. (Setup, ingest, and re-indexing are things *you* run, not things an agent does mid-conversation — but that's a property of those being deliberate user actions, not a wall the Skill puts up.)
+
+## Go deeper, or get hands-on
+
+You've now seen OMem end to end: [what it is](/concepts/01-what-is-omem/), how it [discloses](/concepts/02-progressive-disclosure/) and [stores](/concepts/03-kinds-and-sources/) your work, how it [builds](/concepts/04-ingest-lifecycle/) the wiki, the [seams](/concepts/05-plugin-architecture/) you can extend, the [principles](/concepts/06-design-principles/) underneath, and how an agent puts it to use.
+
+One layer down, if you want it: **[Retrieval](/concepts/08-retrieval/)** explains how a query actually finds the right page — the multi-path recall (BM25 + vector + rerank) behind the scores you saw above. Otherwise, the how-to guides get hands-on.

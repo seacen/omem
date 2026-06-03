@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- OMem header lockup — LIGHT. Simplified seal (double frame + OM, no micro
+     Latin per BRAND §7.3 small-size degradation) + large OMem wordmark.
+     Tuned so the wordmark stays crisp and legible at nav-bar height. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 90" role="img" aria-label="OMem">
+  <style><![CDATA[
+    @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&amp;display=swap');
+  ]]></style>
+  <!-- Simplified seal: double frame + OM only -->
+  <g transform="translate(2,5)">
+    <rect x="3" y="3" width="74" height="74" rx="3" fill="none" stroke="#2B2A28" stroke-width="2"/>
+    <rect x="8" y="8" width="64" height="64" rx="2" fill="none" stroke="#2B2A28" stroke-width="1"/>
+    <text x="40" y="55" font-family="'EB Garamond', Garamond, serif" font-style="italic" font-weight="500" font-size="40" fill="#2B2A28" text-anchor="middle">OM</text>
+  </g>
+  <!-- Large OMem wordmark -->
+  <text x="96" y="58" font-family="'EB Garamond', Garamond, serif" font-weight="600" font-size="50" fill="#2B2A28" letter-spacing="-1.5">OMem</text>
+</svg>

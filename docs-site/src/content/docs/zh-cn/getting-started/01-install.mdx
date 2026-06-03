@@ -1,0 +1,75 @@
+---
+title: 安装 OMem
+description: 用 Homebrew 或一行 curl 脚本在 macOS 上装好 omem CLI,并确认它能跑起来。这是让 OMem 完整跑通的四步里的第一步。
+---
+
+import CommandExplorer from '../../../../components/CommandExplorer.tsx';
+import { Aside, Tabs, TabItem, Steps } from '@astrojs/starlight/components';
+
+刚听说 OMem、想上手试试?这一页就是给你的。读完,你就把 `omem` 命令装好、也验过了,前后大概两分钟。再往后三页,会带你从"装好了",一路走到"我的 agent 能答上来我工作里的事"。
+
+OMem **目前支持 macOS,Windows 版也在路上了。** 它就是一个命令行工具——一个二进制文件,不用操心 Python,也不用注册账号。
+
+## 省心的路子:让你的 agent 替你装
+
+如果你本来就在用 Claude Code 这类 AI agent,最省事的装法,是**让它把说明读一遍、替你跑一遍**。打开你的 agent,跟它说:
+
+> "从 github.com/seacen/omem 装一下 OMem,然后带我把 setup 走一遍。"
+
+这一页和下一页要做的事,它都能替你包办。要是你更想自己动手,或者想把每一步都弄明白,那就接着往下读。
+
+## 手动安装
+
+<Steps>
+
+1. **装这个二进制。** 二选一:
+
+   <Tabs>
+     <TabItem label="Homebrew(推荐)">
+     ```bash
+     brew install seacen/omem/omem
+     ```
+     以后更新交给 Homebrew 就行:`brew upgrade omem`。
+     </TabItem>
+     <TabItem label="curl">
+     ```bash
+     curl -fsSL https://omem.app/install.sh | sh
+     ```
+     装到 `~/.local/bin/omem`。记得确认这个路径在你的 `PATH` 里。
+     </TabItem>
+   </Tabs>
+
+2. **验一下它能跑:**
+
+   ```bash
+   omem version
+   ```
+
+   你应该能看到打印出一行版本号。到这儿,工具就算装好了。
+
+3. **接着去 [setup](/zh-cn/getting-started/02-setup-wizard/)**,把你的数据接上、再挑一个 LLM。
+
+</Steps>
+
+<CommandExplorer client:load lang="zh" sessions={[{
+  command: 'omem version',
+  output: ['omem 1.0.0'],
+}]} />
+
+<Aside type="note" title="不走 PyPI,不用 pip,也不用从源码编译">
+OMem 发出来的,是一个编译好的二进制文件。你不用 `pip install`、不用 clone 仓库,也不用伺候什么 virtualenv——`brew`(或那行 curl 脚本)给你一个可执行文件,整个安装就这么点事。以后升级,也走同一个渠道。
+</Aside>
+
+<details>
+<summary>它为什么没签名,这对你意味着什么</summary>
+
+macOS 上这个二进制**没有签名**(也就是没经过 Apple 公证)。不过两种安装方式都替你处理好了:`curl` 脚本下载时就不带隔离(quarantine)标记,Homebrew 的 formula 则会把它去掉——所以你不会撞上 Gatekeeper 那道"来自身份不明的开发者"的拦截。这是 v1.0 想清楚了才这么定的(对一个单人项目来说,代码签名的成本是实打实的),它一点不影响 OMem 怎么跑。万一你哪天用别的方式下载了这个二进制、又被 macOS 拦下,把隔离属性去掉就行:`xattr -dr com.apple.quarantine /path/to/omem`。
+
+</details>
+
+## 接下来
+
+工具到手了,接下来把它接到你的工作上。
+
+- **[跑 setup 向导](/zh-cn/getting-started/02-setup-wizard/)**——选好要摄入哪些、交给哪个 LLM 来整理。约 5 分钟。
+- 好奇自己刚装的到底是个啥?**[OMem 是什么?](/zh-cn/concepts/01-what-is-omem/)** 把这背后的想法讲清楚了。

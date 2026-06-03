@@ -1,0 +1,84 @@
+---
+title: 配置 LLM provider
+description: 选一个模型来整理你的 wiki、描述图片——可以用 Claude 或 ChatGPT 订阅、Anthropic API,也可以是任何说 OpenAI 那套话的端点,包括你本地跑的模型。
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+**想换一换 OMem 用哪个模型,或者从订阅切到 API key,又或者把 OMem 指向本地模型?** 看这一页。OMem 自己不带模型——是你把它指向某一个——而且整理器(文本 → wiki 页)和视觉模型(图片 → 描述)是分开配的,互不影响。
+
+## 四个 provider
+
+<Tabs>
+  <TabItem label="Claude 订阅">
+
+  **`anthropic-oauth`**(默认)——用你的 Claude Pro / Max 订阅,不用 API key。在向导里配:
+
+  ```bash
+  omem setup --llm
+  ```
+
+  </TabItem>
+  <TabItem label="Anthropic API">
+
+  **`anthropic-api`**——按 token 计费。key 存在环境变量或 Keychain 里(绝不写进配置文件):
+
+  ```bash
+  omem config set llm.curator.provider anthropic-api
+  omem config set llm.curator.model claude-sonnet-4-6
+  omem config set llm.curator.api_key_env ANTHROPIC_API_KEY
+  ```
+
+  </TabItem>
+  <TabItem label="OpenAI 兼容">
+
+  **`openai-compat`**——OpenAI 自己、一个托管网关,或者你**本地**机器上的服务器。这是给你留的那道口子:
+
+  ```bash
+  omem config set llm.curator.provider openai-compat
+  omem config set llm.curator.base_url http://localhost:11434/v1
+  omem config set llm.curator.model your-model-name
+  omem config set llm.curator.api_key_env YOUR_KEY_ENV
+  ```
+
+  </TabItem>
+  <TabItem label="ChatGPT 订阅">
+
+  **`openai-chatgpt-oauth`**——用你的 ChatGPT Plus / Pro 订阅。跟 Claude 那个选项一样,登录由向导搞定:
+
+  ```bash
+  omem setup --llm
+  ```
+
+  </TabItem>
+</Tabs>
+
+## 整理器和视觉模型是分开的
+
+整理可以用一个强一点的文本模型,图片则交给一个更便宜、甚至换个厂商的视觉模型——两者各管各的,分别落在 `llm.curator.*` 和 `llm.vlm.*` 底下:
+
+```bash
+omem config set llm.vlm.provider openai-compat
+omem config set llm.vlm.model qwen-vl-max
+```
+
+<Aside type="caution" title="key 永远不进配置文件">
+用 `api_key_env`(一个环境变量名)或者 `api_key_keychain`(一个 macOS Keychain 账号;service 是 `omem-llm`)。两个都设了的话,以 Keychain 为准。两个 OAuth provider 压根不用 key。
+</Aside>
+
+## 跑一个本地模型
+
+设成 `openai-compat`,把 `base_url` 指向你的本地服务器(Ollama、vLLM、LM Studio 都行)。这条路现在就能走,但有句实话得说在前头:**质量取决于模型本身**。OMem"开箱就好用"的承诺,是按云上那些有本事的模型来校准的;一个小的本地模型也能整理,只是还原度会低一些。完全离线、又能达到工作级质量,这是 v1.5 的目标。
+
+## 验证
+
+```bash
+omem doctor
+```
+
+`llm endpoint` 那一项会确认你的 provider 连得上、也配对了。完整字段清单见 [配置 schema](/zh-cn/reference/02-config-schema/#llm)。
+
+## 接下来
+
+- **[查询与搜索](/zh-cn/how-to/06-query-and-search/)**——页面整理好了,就把它们找出来。
+- **[配置 schema → llm](/zh-cn/reference/02-config-schema/#llm)**——每个 provider 字段。
