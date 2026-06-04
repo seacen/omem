@@ -9,7 +9,7 @@
 
 <br>
 
-**Local-first · agent-agnostic memory layer for AI agents**
+**The memory that auto-ingests your real work — local-first, for any AI agent**
 
 <a href="https://seacen.github.io/omem/">Docs</a> ·
 <a href="https://seacen.github.io/omem/zh-cn/">中文文档</a> ·
@@ -26,10 +26,11 @@
 
 ---
 
-**Local-first, agent-agnostic memory layer for AI agents.** OMem runs quietly on
-your machine and turns your real work — email, calendar, meeting notes, and files
-(Office formats, PDFs, images, HTML, Markdown) — into a plain-Markdown wiki that
-**any** AI agent can query. Capable agents and your real work context, finally
+**OMem automatically ingests your real work — email, calendar, meeting notes, and
+files (Office formats, PDFs, images, HTML, Markdown) — and turns it into a
+plain-Markdown wiki that any AI agent can query.** It runs quietly on your own
+machine, reading the work you already do from where it already lives — no copying,
+no re-typing, no vendor cloud. Capable agents and your real work context, finally
 connected.
 
 > 📚 **Documentation: [seacen.github.io/omem](https://seacen.github.io/omem/)**
@@ -48,15 +49,20 @@ your decks, your meeting notes. OMem is the layer that connects the two.
 
 What makes it different — no other tool sits at this intersection:
 
+- **Auto-ingests your real work.** The part nothing else does: it reads the mail,
+  calendar, notes, and files you already produce — automatically, from where they
+  live. No feeding it documents, no re-typing.
 - **Local-first, zero IT.** Reads what your OS already has access to — no vendor
   cloud, no Graph API consent, no IT ticket.
 - **The wiki is yours.** Plain Markdown in a folder you choose. Read it, grep it,
-  edit it, version it, open it in Obsidian. Nothing locks you in.
+  edit it, version it. Nothing locks you in.
 - **Agent-agnostic.** One CLI; a thin skill / MCP wrapper over it. Switch agents
   next year — your memory persists.
+- **Reads any format.** A purpose-built parser per format turns PowerPoint, Excel,
+  Word, PDFs, scans, and mail into accurate Markdown — details kept, not a lossy
+  summary.
 - **Search that's actually good.** Keyword search by default; enable `qmd` for
-  multi-path semantic + cross-language retrieval. Chinese is a first-class
-  citizen, not an afterthought.
+  multi-path semantic + cross-language retrieval. Chinese is first-class.
 
 ---
 
