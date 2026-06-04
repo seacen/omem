@@ -19,7 +19,7 @@ hero:
 
 import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
 
-你的 AI agent 很聪明，但每次对话都从一张白纸开始——它看不见你身边正在发生的工作。OMem 把这件事补上。它安静地跑在你的电脑上，把你真实的工作——邮件、日历、会议笔记、各种文件（Office 格式、PDF、图片、HTML、Markdown）——整理成一份纯 Markdown 的 wiki，**任何** agent 都能查。今年真正能干活的 agent 已经出现了，缺的只是你工作的上下文——OMem 就是把这两端连起来的那根线。
+你的 AI agent 很聪明，但每次对话都从一张白纸开始——它看不见你身边正在发生的工作。OMem 把这件事补上：它安静地跑在你电脑上，**自动把你真实的工作——邮件、日历、会议笔记、各种文件（Office 格式、PDF、图片、HTML、Markdown）——从它们原本所在的地方读进来**，整理成一份纯 Markdown 的 wiki，**任何** agent 都能查。不用你复制、不用你重新录入，你照常工作，这份记忆自己就长出来了。今年真正能干活的 agent 已经出现了，缺的只是你工作的上下文——OMem 就是把这两端连起来的那根线。
 
 **现在支持 macOS，Windows 在路上。** 个人使用免费。
 
@@ -43,6 +43,9 @@ import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
 ## 它有什么不同
 
 <CardGrid>
+	<Card title="自动摄入你真实的工作" icon="cloud-download">
+		这一点别家都没做：自动读取你本来就在产出的邮件、日历、笔记和文件，从它们原本所在的地方读。不用喂、不用重录，你照常工作记忆自己就长出来。
+	</Card>
 	<Card title="本地优先，零 IT 介入" icon="approve-check">
 		读取你操作系统本就能访问的内容——不上云、不需要 Graph API 授权、不用走 IT 工单。
 	</Card>
@@ -51,6 +54,9 @@ import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
 	</Card>
 	<Card title="agent 中立" icon="random">
 		唯一接口是 CLI；Skill / MCP 只是它薄薄的一层封装。明年换 agent——你的记忆照样还在。
+	</Card>
+	<Card title="任何格式都读得准" icon="add-document">
+		每种格式都有专门的解析器：PPT、Excel、Word、PDF、扫描件、邮件——都还原成准确的 Markdown，细节不丢，AI 答的是细节而非概要。
 	</Card>
 	<Card title="检索是真的好用" icon="magnifier">
 		默认关键词搜索；装上 `qmd` 即可获得多路召回的语义 + 跨语言检索。中文是一等公民，不是事后补丁。

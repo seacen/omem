@@ -19,7 +19,7 @@ hero:
 
 import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
 
-Your AI agent is clever, but every session starts blank — it can't see the work going on around you. OMem fixes that. It runs quietly on your machine, turning your real work — email, calendar, meeting notes, and files (Office formats, PDFs, images, HTML, Markdown) — into a plain-Markdown wiki that **any** agent can query. Capable agents and your real work context, finally connected.
+Your AI agent is clever, but every session starts blank — it can't see the work going on around you. OMem fixes that. It runs quietly on your machine and **automatically ingests your real work — email, calendar, meeting notes, and files (Office formats, PDFs, images, HTML, Markdown)** — from where it already lives, turning it into a plain-Markdown wiki that **any** agent can query. No copying, no re-typing: the memory builds itself while you work. Capable agents and your real work context, finally connected.
 
 **Available on macOS today; Windows is coming.** Free for personal use.
 
@@ -43,6 +43,9 @@ Your AI agent is clever, but every session starts blank — it can't see the wor
 ## What makes it different
 
 <CardGrid>
+	<Card title="Auto-ingests your real work" icon="cloud-download">
+		The part nothing else does: it reads the mail, calendar, notes, and files you already produce — automatically, from where they live. No feeding, no re-typing.
+	</Card>
 	<Card title="Local-first, zero IT" icon="approve-check">
 		Reads what your OS already has access to — no vendor cloud, no Graph API consent, no IT ticket.
 	</Card>
@@ -51,6 +54,9 @@ Your AI agent is clever, but every session starts blank — it can't see the wor
 	</Card>
 	<Card title="Agent-agnostic" icon="random">
 		One CLI; a thin Skill / MCP wrapper over it. Switch agents next year — your memory persists.
+	</Card>
+	<Card title="Reads any format" icon="add-document">
+		A purpose-built parser per format turns PowerPoint, Excel, Word, PDFs, scans, and mail into accurate Markdown — details kept, so the agent answers from them.
 	</Card>
 	<Card title="Search that's actually good" icon="magnifier">
 		Keyword search by default; enable `qmd` for multi-path semantic + cross-language retrieval. Chinese is first-class.
