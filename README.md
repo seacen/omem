@@ -72,8 +72,20 @@ curl -fsSL https://github.com/seacen/omem/releases/latest/download/install.sh | 
 omem setup     # guided wizard, ~5 min
 ```
 
-Then **follow the docs** — they walk you through setup, your first query, and
-connecting your agent (Claude Code, Codex, Cursor, …), step by step:
+Then connect it to your AI agent. The OMem skill installs into **every agent you
+have** with one command, via the cross-agent [`skills`](https://skills.sh) CLI:
+
+```bash
+npx skills add seacen/omem --global
+```
+
+It detects which agents are installed (Claude Code, Codex, Cursor, Cline,
+Windsurf, …) and drops the skill into each one. From there the agent answers
+work-context questions from your memory on its own. (Prefer your agent's own
+plugin system, or need MCP for an agent without skills? The docs cover every path.)
+
+**Follow the docs** — they walk you through setup, your first query, and every
+way to connect an agent, step by step:
 
 **→ [Getting started](https://seacen.github.io/omem/getting-started/01-install/)**
 
