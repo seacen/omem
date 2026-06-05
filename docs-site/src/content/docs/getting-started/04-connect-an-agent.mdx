@@ -1,6 +1,6 @@
 ---
 title: Let an AI agent use your memory
-description: Connect OMem to Claude Code (a plugin) or any MCP-capable agent (Cursor, Cline, OpenClaw, …) so it automatically queries your work context — no need to remind it your history exists.
+description: Install OMem's skill into every AI agent with one command (npx skills add seacen/omem), so it automatically queries your work context — no need to remind it your history exists. Plus per-agent and MCP alternatives.
 ---
 
 import QueryFlow from '../../../components/QueryFlow.tsx';
@@ -16,25 +16,39 @@ Once connected, the agent recognizes a work-flavored question, queries OMem, rea
 
 The key: you don't tell it to use OMem. It notices the question touches your work and reaches for it.
 
-## Three ways to connect
+## The one-line way: install the skill into every agent
 
-Pick the one that matches your agent.
+OMem ships one **skill** — a small wrapper that teaches an agent *when* to query your work memory and *how* to walk the results. The simplest way to install it is the cross-agent [`skills`](https://skills.sh) CLI, which drops the skill into every AI agent you have in a single command:
+
+```bash
+npx skills add seacen/omem --global
+```
+
+It detects which agents are on your machine (Claude Code, Codex, Cursor, Cline, Windsurf, …) and installs OMem's skill into each one's skills directory — no per-agent plugin steps. `--global` installs it user-wide (the right choice for OMem, which isn't tied to one project); drop it to install only into the current project. First make sure the `omem` CLI is installed and set up ([install](/getting-started/01-install/) → [setup](/getting-started/02-setup-wizard/)).
+
+To verify, ask any connected agent *"check my OMem health"* — it should run `omem doctor`.
+
+<Aside type="tip" title="Manage it the same way">
+`npx skills list` shows what's installed, `npx skills update` refreshes OMem to the latest, and `npx skills remove omem` uninstalls it — across every agent at once.
+</Aside>
+
+This is the recommended path. The rest of this page covers the alternatives — a per-agent plugin install (if you'd rather not use the `skills` CLI), MCP for agents without a skill mechanism, and the plain CLI.
+
+## Other ways to connect
+
+Pick one only if the one-liner above doesn't fit your agent.
 
 <Tabs>
-  <TabItem label="Skill (recommended)">
+  <TabItem label="Per-agent plugin">
 
-  The richest integration, for agents with a skill / plugin mechanism — **Claude Code, Codex, Claw Hub**. The skill carries trigger semantics and the drill-down flow, not just raw tools. First make sure the `omem` CLI is installed and set up ([install](/getting-started/01-install/) → [setup](/getting-started/02-setup-wizard/)).
-
-  In **Claude Code**:
+  If you'd rather install through each agent's own plugin system instead of the `skills` CLI, you can. The skill is the same; only the front door differs. In **Claude Code**:
 
   ```
   /plugin marketplace add seacen/omem
   /plugin install omem@omem-marketplace
   ```
 
-  In **Codex** and **Claw Hub**, install OMem's plugin from their respective plugin systems — the same skill, a different front door. ([Full per-agent steps](/how-to/07-agent-integrations/).)
-
-  To verify, ask the agent *"check my OMem health"* — it should run `omem doctor`.
+  **Codex** and **Claw Hub** have their own plugin systems that carry the same skill. ([Full per-agent steps](/how-to/07-agent-integrations/).)
 
   </TabItem>
   <TabItem label="MCP (fallback)">

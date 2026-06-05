@@ -1,6 +1,6 @@
 ---
 title: 接上各种 agent
-description: 把 OMem 接进你的 agent。带 skill 机制的 agent(Claude Code、Codex、Claw Hub)用 OMem 的 skill;没有的用 omem mcp server 兜底。每一种的配置都在这。
+description: 把 OMem 接进你的 agent——一行命令的 npx skills 安装器(推荐),外加 Claude Code、Codex、Claw Hub 各自的精确步骤,以及任何 MCP 客户端(Cursor、Cline…)。一个 skill,几道前门;omem mcp server 是通用兜底。
 ---
 
 import { Aside } from '@astrojs/starlight/components';
@@ -16,7 +16,23 @@ OMem 只有一个 **skill**——一层小小的、与 agent 无关的封装,它
 
 两条路开出的是**同样这六个只读能力**;区别只在于:走 skill,agent 还顺带拿到了 skill 的触发判断和往下钻的引导。
 
-## 有 skill 的 agent
+## 推荐:一条命令,接上每一个 agent
+
+装这个 skill 最快的办法——而且*一次装进*你所有 agent——是用跨 agent 的 [`skills`](https://skills.sh) 命令行工具:
+
+```bash
+npx skills add seacen/omem --global
+```
+
+它会 clone OMem 仓库、找到 skill、认出你装了哪些 agent(Claude Code、Codex、Cursor、Cline、Windsurf、Gemini CLI……),再把 skill——`SKILL.md` 连同它的 `references/`——铺进每个 agent 各自的 skills 目录。`--global` 是装到用户级、全局可用;去掉它就只装进当前项目。几个好用的 flag:
+
+- `-a '*'` / `--agent '*'`——不弹确认,直接装进所有探测到的 agent(`-y` 把确认也整个跳过)。
+- `--copy`——拷贝文件,而不是默认的 symlink(你的 agent 不认 symlink 时用)。
+- `npx skills list` / `update` / `remove omem`——查看、更新、卸载,一次操作覆盖所有 agent。
+
+对 `skills` 工具支持的任何 agent 来说,集成到这就完事了。下面按 agent 分的那几节,是改走某个 agent *自己的* plugin 体系——还是同一个 skill,适合你不想用 `skills` 工具、或者你的 agent 不在它的探测列表里的情况。
+
+## 按 agent 单装(npx skills 的替代)
 
 ### Claude Code
 

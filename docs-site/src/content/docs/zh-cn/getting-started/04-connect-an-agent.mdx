@@ -1,6 +1,6 @@
 ---
 title: 让 AI agent 用上你的记忆
-description: 把 OMem 接到 Claude Code(一个 plugin)或任何支持 MCP 的 agent(Cursor、Cline、OpenClaw…),让它自动去查你的工作上下文——再不用提醒它"你还有这么一份历史"。
+description: 一条命令(npx skills add seacen/omem)把 OMem 的 skill 装进你所有的 AI agent,让它自动去查你的工作上下文——再不用提醒它"你还有这么一份历史"。另附按 agent 单装和 MCP 两种备选。
 ---
 
 import QueryFlow from '../../../../components/QueryFlow.tsx';
@@ -16,25 +16,39 @@ import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 
 关键在于:你不用开口叫它去用 OMem。是它自己察觉到问题沾着你的工作,主动伸的手。
 
-## 三种接法
+## 一条命令,把 skill 装进每一个 agent
 
-挑跟你 agent 对得上的那一种。
+OMem 只有一个 **skill**——一层薄薄的壳,教 agent *什么时候*去查你的工作记忆、*怎么*顺着结果往下读。装它最省事的办法,是用跨 agent 的 [`skills`](https://skills.sh) 命令行工具,一条命令就把这个 skill 铺进你机器上的每一个 AI agent:
+
+```bash
+npx skills add seacen/omem --global
+```
+
+它会自动认出你装了哪些 agent(Claude Code、Codex、Cursor、Cline、Windsurf……),挨个把 OMem 的 skill 装进各自的 skills 目录——不用再一个个走 plugin 流程。`--global` 是装到用户级、全局可用(OMem 不绑定某个项目,这才是对的);去掉它就只装进当前项目。装之前先确认 `omem` CLI 已经装好、也配好了([安装](/zh-cn/getting-started/01-install/) → [setup](/zh-cn/getting-started/02-setup-wizard/))。
+
+想验证装好没?随便问一个接上的 agent 一句*"帮我看看 OMem 健康状况"*——它应该会去跑 `omem doctor`。
+
+<Aside type="tip" title="管理也是同一套命令">
+`npx skills list` 看装了什么,`npx skills update` 把 OMem 更到最新,`npx skills remove omem` 卸载——一次操作,所有 agent 同时生效。
+</Aside>
+
+这是推荐路径。这页剩下的部分讲几条备选:按 agent 单独走 plugin(要是你不想用 `skills` 这个工具)、给没有 skill 机制的 agent 用的 MCP、以及纯 CLI。
+
+## 其它接法
+
+只在上面那条一行命令对你的 agent 不合用时,才挑下面的。
 
 <Tabs>
-  <TabItem label="Skill(推荐)">
+  <TabItem label="按 agent 单装">
 
-  最完整的一种集成,给那些带 skill / plugin 机制的 agent——**Claude Code、Codex、Claw Hub**。skill 给的不只是几个裸工具,还有何时触发的判断、以及一路往下钻的流程。先确认 `omem` CLI 装好、也配好了([安装](/zh-cn/getting-started/01-install/) → [setup](/zh-cn/getting-started/02-setup-wizard/))。
-
-  在 **Claude Code** 里:
+  要是你更想走每个 agent 自己的 plugin 体系、而不用 `skills` 这个工具,也行。skill 是同一个,只是换了道前门。在 **Claude Code** 里:
 
   ```
   /plugin marketplace add seacen/omem
   /plugin install omem@omem-marketplace
   ```
 
-  在 **Codex** 和 **Claw Hub** 里,从它们各自的 plugin 体系装上 OMem 的 plugin——还是同一个 skill,只是换了一道前门。([各 agent 的完整步骤](/zh-cn/how-to/07-agent-integrations/)。)
-
-  想验证装好没?问 agent 一句*"帮我看看 OMem 健康状况"*——它应该会去跑 `omem doctor`。
+  **Codex** 和 **Claw Hub** 各有自己的 plugin 体系,装的也是同一个 skill。([各 agent 的完整步骤](/zh-cn/how-to/07-agent-integrations/)。)
 
   </TabItem>
   <TabItem label="MCP(兜底)">

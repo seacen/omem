@@ -1,6 +1,6 @@
 ---
 title: Connect agents
-description: Wire OMem into your agent — exact steps for Claude Code, Codex, Claw Hub, and any MCP client (Cursor, Cline, …). One skill, several front doors; the omem mcp server as the universal fallback.
+description: Wire OMem into your agent — the one-line npx skills installer (recommended), plus exact per-agent steps for Claude Code, Codex, Claw Hub, and any MCP client (Cursor, Cline, …). One skill, several front doors; the omem mcp server as the universal fallback.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
@@ -16,7 +16,23 @@ OMem ships one **skill** — a small, agent-neutral wrapper that teaches an agen
 
 Both surface the **same six read-only capabilities**; the difference is whether the agent also gets the skill's trigger + drill guidance.
 
-## Agents with a skill
+## Recommended: one command for every agent
+
+The fastest way to install the skill — into *all* your agents at once — is the cross-agent [`skills`](https://skills.sh) CLI:
+
+```bash
+npx skills add seacen/omem --global
+```
+
+It clones the OMem repo, finds the skill, detects which agents you have installed (Claude Code, Codex, Cursor, Cline, Windsurf, Gemini CLI, …), and drops the skill — `SKILL.md` plus its `references/` — into each agent's skills directory. `--global` installs it user-wide; omit it to install only into the current project. Useful flags:
+
+- `-a '*'` / `--agent '*'` — install to every detected agent without prompting (`-y` skips the confirmation entirely).
+- `--copy` — copy files instead of the default symlink (use if your agents don't follow symlinks).
+- `npx skills list` / `update` / `remove omem` — inspect, refresh, or uninstall, across all agents at once.
+
+That's the whole integration for any agent the `skills` CLI supports. The per-agent sections below are for installing through an agent's *own* plugin system instead — same skill, useful when you'd rather not use the `skills` CLI or your agent isn't in its detection list.
+
+## Per-agent install (alternative to `npx skills`)
 
 ### Claude Code
 
