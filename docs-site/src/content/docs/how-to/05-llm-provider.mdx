@@ -32,7 +32,7 @@ import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
   </TabItem>
   <TabItem label="OpenAI-compatible">
 
-  **`openai-compat`** — OpenAI, a hosted gateway, or a **local** server. The escape hatch:
+  **`openai-compat`** — any endpoint that speaks the OpenAI API: OpenAI, **Chinese models (Alibaba Bailian / ByteDance Volcengine Ark / Kimi / Zhipu GLM / MiniMax / DeepSeek, etc.)**, a hosted gateway, or a **local** server. The escape hatch:
 
   ```bash
   omem config set llm.curator.provider openai-compat
@@ -40,6 +40,8 @@ import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
   omem config set llm.curator.model your-model-name
   omem config set llm.curator.api_key_env YOUR_KEY_ENV
   ```
+
+  For exact `base_url` and model names for Chinese model platforms, see [Using Chinese model platforms](#using-chinese-model-platforms) below.
 
   </TabItem>
   <TabItem label="ChatGPT subscription">
@@ -64,6 +66,44 @@ omem config set llm.vlm.model qwen-vl-max
 
 <Aside type="caution" title="Keys never go in the file">
 Use `api_key_env` (an environment variable name) or `api_key_keychain` (a macOS Keychain account; service `omem-llm`). The keychain wins if both are set. The two OAuth providers need no key at all.
+</Aside>
+
+## Using Chinese model platforms
+
+The major Chinese model platforms all expose OpenAI-compatible endpoints — point `openai-compat` at the right `base_url` and use the platform's model ID:
+
+| Platform | `base_url` | Curator model | Vision model |
+|---|---|---|---|
+| **Alibaba Bailian** (Qwen) | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-max` / `qwen-plus` | `qwen-vl-max` |
+| **ByteDance Volcengine Ark** (Doubao) | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-1-5-pro-32k` | `doubao-1-5-vision-pro` |
+| **Kimi** (Moonshot) | `https://api.moonshot.cn/v1` | `kimi-k2-0905-preview` | `moonshot-v1-32k-vision-preview` |
+| **Zhipu GLM** | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-plus` | `glm-4v-plus` |
+| **MiniMax** | `https://api.minimax.chat/v1` | `MiniMax-Text-01` | (check official vision model) |
+| **DeepSeek** | `https://api.deepseek.com/v1` | `deepseek-chat` | (no first-party vision yet; use another provider for VLM) |
+
+Example — Bailian for both curator (`qwen-max`) and VLM (`qwen-vl-max`):
+
+```bash
+# Curator
+omem config set llm.curator.provider openai-compat
+omem config set llm.curator.base_url https://dashscope.aliyuncs.com/compatible-mode/v1
+omem config set llm.curator.model qwen-max
+omem config set llm.curator.api_key_env DASHSCOPE_API_KEY
+
+# Vision model (can be a different provider; here we keep it on Bailian)
+omem config set llm.vlm.provider openai-compat
+omem config set llm.vlm.base_url https://dashscope.aliyuncs.com/compatible-mode/v1
+omem config set llm.vlm.model qwen-vl-max
+omem config set llm.vlm.api_key_env DASHSCOPE_API_KEY
+
+# Set the key in your shell (or via Keychain — see above)
+export DASHSCOPE_API_KEY=sk-xxx
+```
+
+Always check the platform's **official docs** for the latest `base_url` and model IDs — they ship new models and deprecate old ones often.
+
+<Aside type="note" title="Network access from inside China">
+The two OAuth options (Claude / ChatGPT subscriptions) can be unreliable from inside China. If that's your situation, use `openai-compat` with a Chinese platform — lower latency, easy payment, and OMem treats every OpenAI-compatible endpoint equally; quality is a function of the specific model you choose.
 </Aside>
 
 ## Running a local model

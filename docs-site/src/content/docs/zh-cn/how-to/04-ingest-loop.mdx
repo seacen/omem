@@ -12,23 +12,37 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 同步到你 OneDrive 的那个 `.loop` 文件,是一份二进制的 Fluid 快照——真正的笔记内容不在里面,而在 SharePoint 上。所以 OMem 会 [把这个指针分派出去](/zh-cn/concepts/06-design-principles/)(设计原则 P8):它从你 OneDrive 的同步数据库里读出 SharePoint 链接,用你现成的登录态、开一个无头浏览器打开那一页,再把渲染出来的笔记抓成 Markdown。也正因如此,Loop 比别的数据源多要几样东西:OneDrive 得正在同步,你得登录一次,而且 OMem 要驱动一个真实浏览器来完成抓取。
 
 <Aside type="note" title="Loop 需要 agent-browser 这个工具">
-浏览器抓取是通过 [`agent-browser`](https://agent-browser.dev) 完成的——一个小巧的命令行浏览器驱动,OMem 直接 shell 出去调它(而不是把整个浏览器引擎打包进来)。它是 **OMem 唯一一个需要它的数据源**——文件、邮件、日历读的都是本地库。装一次就行:
+浏览器抓取是通过 [`agent-browser`](https://agent-browser.dev) 完成的——一个小巧的命令行浏览器驱动,OMem 直接 shell 出去调它(而不是把整个浏览器引擎打包进来)。它是 **OMem 唯一一个需要它的数据源**——文件、邮件、日历读的都是本地库。
+
+装它**分两步,缺一不可**:
 
 ```bash
+# 1. 装 CLI 本体(~8MB)
 npm install -g agent-browser
+# 或:brew install agent-browser
+
+# 2. 装它自己的 Chrome for Testing(~170MB)
+agent-browser install
 ```
 
-要是它不在你的 `PATH` 上,`omem setup --browser` 会直接停下,报一个清楚的错让你先装它。Loop 的其余部分都默认它已经在了。
+第二步不跑的话,agent-browser 会偷偷 fall back 到你系统装的 Chrome——而那个浏览器没有 OMem 给 Loop 存的 Microsoft 登录态,抓 Loop 一定挂。
+
+要是哪一步缺了,`omem setup --browser` 会停下来,报一个清楚的错让你先补。Loop 的其余部分都默认这两步已经做好了。
 </Aside>
 
 ## 打开它
 
 <Steps>
 
-1. **装 agent-browser**(一次性,要是还没装):
+1. **装 agent-browser**(一次性,两步):
 
    ```bash
+   # 1a. 装 CLI 本体
    npm install -g agent-browser
+   # 或:brew install agent-browser
+
+   # 1b. 装它自己的 Chrome for Testing(必须,否则抓 Loop 会挂)
+   agent-browser install
    ```
 
 2. **登录一次。** 这会弹出一个浏览器窗口让你登录 Microsoft,并把会话存下来:

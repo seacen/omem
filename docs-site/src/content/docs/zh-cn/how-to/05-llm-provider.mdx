@@ -32,7 +32,7 @@ import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
   </TabItem>
   <TabItem label="OpenAI 兼容">
 
-  **`openai-compat`**——OpenAI 自己、一个托管网关,或者你**本地**机器上的服务器。这是给你留的那道口子:
+  **`openai-compat`**——任何说 OpenAI API 那套话的端点:OpenAI 自己、**国内大模型(百炼 / 火山方舟 / Kimi / 智谱 GLM / MiniMax 等)**、一个托管网关,或者你**本地**机器上的服务器。这是给你留的那道口子:
 
   ```bash
   omem config set llm.curator.provider openai-compat
@@ -40,6 +40,8 @@ import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
   omem config set llm.curator.model your-model-name
   omem config set llm.curator.api_key_env YOUR_KEY_ENV
   ```
+
+  国内模型的具体 `base_url` 和 model 名,见下面 [国内模型怎么配](#国内模型怎么配)。
 
   </TabItem>
   <TabItem label="ChatGPT 订阅">
@@ -64,6 +66,44 @@ omem config set llm.vlm.model qwen-vl-max
 
 <Aside type="caution" title="key 永远不进配置文件">
 用 `api_key_env`(一个环境变量名)或者 `api_key_keychain`(一个 macOS Keychain 账号;service 是 `omem-llm`)。两个都设了的话,以 Keychain 为准。两个 OAuth provider 压根不用 key。
+</Aside>
+
+## 国内模型怎么配
+
+国内主流大模型基本都提供 OpenAI 兼容端点,直接走 `openai-compat` 就行——把 `base_url` 指到对应平台,model 名填该平台的模型 ID 就好。下面是几个常见的:
+
+| 平台 | `base_url` | 常用 model 名(整理) | 常用 model 名(视觉) |
+|---|---|---|---|
+| **阿里云百炼**(通义千问) | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-max` / `qwen-plus` | `qwen-vl-max` |
+| **火山方舟**(字节豆包) | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-1-5-pro-32k` | `doubao-1-5-vision-pro` |
+| **Kimi**(月之暗面) | `https://api.moonshot.cn/v1` | `kimi-k2-0905-preview` | `moonshot-v1-32k-vision-preview` |
+| **智谱 GLM** | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-plus` | `glm-4v-plus` |
+| **MiniMax** | `https://api.minimax.chat/v1` | `MiniMax-Text-01` | `abab6.5s-chat`(看官方 vision 模型) |
+| **DeepSeek** | `https://api.deepseek.com/v1` | `deepseek-chat` | (官方暂无 vision,VLM 走别家) |
+
+配一个百炼当例子(整理用 `qwen-max`,VLM 用 `qwen-vl-max`):
+
+```bash
+# 整理器
+omem config set llm.curator.provider openai-compat
+omem config set llm.curator.base_url https://dashscope.aliyuncs.com/compatible-mode/v1
+omem config set llm.curator.model qwen-max
+omem config set llm.curator.api_key_env DASHSCOPE_API_KEY
+
+# 视觉模型(可以跟 curator 不同 provider,这里我们让它也走百炼)
+omem config set llm.vlm.provider openai-compat
+omem config set llm.vlm.base_url https://dashscope.aliyuncs.com/compatible-mode/v1
+omem config set llm.vlm.model qwen-vl-max
+omem config set llm.vlm.api_key_env DASHSCOPE_API_KEY
+
+# 在 shell 里把 key 设上(或者用 Keychain,见上面)
+export DASHSCOPE_API_KEY=sk-xxx
+```
+
+`base_url` 和 model 名,以**各平台官方文档**为准(平台经常出新模型、淘汰旧的)。
+
+<Aside type="note" title="如果你在国内用 anthropic/openai 卡得慌">
+默认那两个 OAuth(Claude / ChatGPT 订阅)在国内访问可能不稳。这种情况下推荐直接走 `openai-compat` + 国内平台——延迟低、付费方便,而且 OMem 对所有 OpenAI 兼容端点是平权的,质量主要看你选的具体模型。
 </Aside>
 
 ## 跑一个本地模型

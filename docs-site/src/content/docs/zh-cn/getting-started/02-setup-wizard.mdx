@@ -36,7 +36,7 @@ omem setup
 
 5. **每一类工作**——文件、邮件、日历、Loop 笔记。每一类**默认都是关着的**;你把想要的逐个打开,OMem 会帮你把每一类配好(哪几个文件夹、哪几个邮件账号、哪几个日历)。macOS 要权限,也是在这一步问你——见 [授予访问权限](#授予-macos-访问权限)。
 
-6. **浏览器会话**(只有开了 Loop 才会有)——一次性登录,好让 OMem 能去取你的 Teams Loop 页面。Loop 是唯一一个要驱动真实浏览器的数据源,所以得先装好 `agent-browser` 这个命令行工具(`npm install -g agent-browser`);没装的话向导会提示你。详见 [摄入 Loop 笔记](/zh-cn/how-to/04-ingest-loop/)。
+6. **浏览器会话**(只有开了 Loop 才会有)——一次性登录,好让 OMem 能去取你的 Teams Loop 页面。Loop 是唯一一个要驱动真实浏览器的数据源,所以得先装好 `agent-browser`——**分两步**:`npm install -g agent-browser`(或 `brew install agent-browser`)装 CLI,再 `agent-browser install` 把它自己的 Chrome for Testing 下下来。哪一步缺了向导都会停下报错。详见 [摄入 Loop 笔记](/zh-cn/how-to/04-ingest-loop/)。
 
 </Steps>
 
@@ -74,7 +74,7 @@ OMem 自己不带模型——是你把它指向某一个。整理器(文本 → 
   **`anthropic-api`**——Anthropic 的 API,按 token 计费。你提供一个 API key(存在环境变量或 macOS Keychain 里,绝不写进配置文件)。
   </TabItem>
   <TabItem label="OpenAI 兼容">
-  **`openai-compat`**——任何说 OpenAI API 那套话的端点:OpenAI 自己、一个托管网关,或者**你自己机器上的一个本地模型**(把 `base_url` 指向你的本地服务器)。这是给"我想跑自己的模型"留的口子。
+  **`openai-compat`**——任何说 OpenAI API 那套话的端点:OpenAI 自己、**国内大模型(百炼 / 火山方舟 / Kimi / 智谱 GLM / MiniMax / DeepSeek 等都有 OpenAI 兼容端点)**、一个托管网关,或者**你自己机器上的本地模型**。这是给"我想用别家模型 / 跑自己模型"留的口子。具体配法见 [LLM provider 怎么配](/zh-cn/how-to/05-llm-provider/#国内模型怎么配)。
   </TabItem>
   <TabItem label="ChatGPT 订阅">
   **`openai-chatgpt-oauth`**——用你的 ChatGPT Plus / Pro 订阅。跟 Claude 那个选项一样,登录由向导搞定。

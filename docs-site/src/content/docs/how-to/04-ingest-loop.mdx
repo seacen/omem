@@ -12,23 +12,37 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 A `.loop` file synced to your OneDrive is a binary Fluid snapshot — the actual note content isn't in it; it's on SharePoint. So OMem [dispatches the pointer](/concepts/06-design-principles/) (design principle P8): it reads the SharePoint URL from your OneDrive sync database, opens the page in a headless browser using your existing sign-in, and scrapes the rendered note as Markdown. That's why Loop needs things the other sources don't: OneDrive must be syncing, you sign in once, and OMem drives a real browser to do the scraping.
 
 <Aside type="note" title="Loop needs the agent-browser tool">
-The browser scraping runs through [`agent-browser`](https://agent-browser.dev), a small command-line browser driver OMem shells out to (rather than bundling a whole browser engine). It's **the only OMem source that needs it** — files, mail, and calendar all read local stores. Install it once:
+The browser scraping runs through [`agent-browser`](https://agent-browser.dev), a small command-line browser driver OMem shells out to (rather than bundling a whole browser engine). It's **the only OMem source that needs it** — files, mail, and calendar all read local stores.
+
+Installing it is **two steps, both required**:
 
 ```bash
+# 1. Install the CLI itself (~8 MB)
 npm install -g agent-browser
+# or: brew install agent-browser
+
+# 2. Install its own Chrome for Testing (~170 MB)
+agent-browser install
 ```
 
-If it isn't on your `PATH`, `omem setup --browser` stops with a clear error telling you to install it. Everything else about Loop assumes it's present.
+Skip step 2 and agent-browser silently falls back to your system Chrome — which doesn't have the Microsoft sign-in OMem stores for Loop, so Loop fetches will fail.
+
+If either step is missing, `omem setup --browser` stops with a clear error telling you what to install. Everything else about Loop assumes both steps are done.
 </Aside>
 
 ## Turn it on
 
 <Steps>
 
-1. **Install agent-browser** (one time, if you haven't):
+1. **Install agent-browser** (one time, two steps):
 
    ```bash
+   # 1a. The CLI
    npm install -g agent-browser
+   # or: brew install agent-browser
+
+   # 1b. Its bundled Chrome for Testing (required — without it Loop fetches fail)
+   agent-browser install
    ```
 
 2. **Sign in once.** This opens a browser window for your Microsoft sign-in and saves the session:

@@ -73,10 +73,10 @@ OMem never ships a model; you point it at one. The curator (text → wiki) and t
 |---|---|---|
 | `anthropic-oauth` *(default)* | Your Claude Pro / Max subscription via OAuth. No API key to manage. | A Claude subscription; auth is handled in `omem setup`. |
 | `anthropic-api` | The Anthropic API directly, billed per token. | An `ANTHROPIC_API_KEY`. |
-| `openai-compat` | Any OpenAI-compatible endpoint — OpenAI, a local server, or a hosted gateway. | A `base_url` + an API key. |
+| `openai-compat` | Any OpenAI-compatible endpoint — OpenAI, **Chinese model platforms (Alibaba Bailian / ByteDance Volcengine Ark / Kimi / Zhipu GLM / MiniMax / DeepSeek)**, a local server, or a hosted gateway. | A `base_url` + an API key. |
 | `openai-chatgpt-oauth` | A ChatGPT Plus / Pro subscription via the Codex backend. | A ChatGPT subscription; auth in `omem setup`. |
 
-The `openai-compat` path is the escape hatch: it's how you run a **local** model (point `base_url` at your local server) or any provider that speaks the OpenAI API. The matching fields are `base_url`, `api_key_env`, and `api_key_keychain`.
+The `openai-compat` path is the escape hatch: it's how you run a **local** model (point `base_url` at your local server), use **any Chinese model platform with an OpenAI-compatible endpoint** (Bailian / Volcengine Ark / Kimi / Zhipu GLM / MiniMax / DeepSeek and others — concrete `base_url` and model IDs in [Configure the LLM provider](/how-to/05-llm-provider/#using-chinese-model-platforms)), or any provider that speaks the OpenAI API. The matching fields are `base_url`, `api_key_env`, and `api_key_keychain`.
 
 <Aside type="caution" title="Never put the key in the file">
 Store API keys in an env var (`api_key_env`) or the macOS Keychain (`api_key_keychain`) — never inline in `config.yaml`. The keychain path wins when both are set. The two OAuth providers need no key at all.

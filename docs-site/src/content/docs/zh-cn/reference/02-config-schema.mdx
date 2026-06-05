@@ -73,10 +73,10 @@ OMem 从不自带模型；是你把它指向某一个。curator（文本 → wik
 |---|---|---|
 | `anthropic-oauth` *（默认）* | 通过 OAuth 用你的 Claude Pro / Max 订阅。没有 API key 要管。 | 一个 Claude 订阅；认证在 `omem setup` 里搞定。 |
 | `anthropic-api` | 直接用 Anthropic API，按 token 计费。 | 一个 `ANTHROPIC_API_KEY`。 |
-| `openai-compat` | 任何 OpenAI 兼容的端点——OpenAI、本地服务器，或一个托管网关。 | 一个 `base_url` + 一个 API key。 |
+| `openai-compat` | 任何 OpenAI 兼容的端点——OpenAI、**国内大模型(百炼 / 火山方舟 / Kimi / 智谱 GLM / MiniMax / DeepSeek 等)**、本地服务器，或一个托管网关。 | 一个 `base_url` + 一个 API key。 |
 | `openai-chatgpt-oauth` | 通过 Codex 后端用你的 ChatGPT Plus / Pro 订阅。 | 一个 ChatGPT 订阅；认证在 `omem setup` 里。 |
 
-`openai-compat` 这条路是那个逃生口：你跑一个**本地**模型（把 `base_url` 指向你的本地服务器）、或者用任何说 OpenAI API 那套话的 provider，靠的都是它。配套字段是 `base_url`、`api_key_env` 和 `api_key_keychain`。
+`openai-compat` 这条路是那个逃生口：你跑一个**本地**模型（把 `base_url` 指向你的本地服务器）、用**国内任意支持 OpenAI 兼容接口的大模型平台**（百炼 / 火山方舟 / Kimi / 智谱 GLM / MiniMax / DeepSeek 等——具体 `base_url` 和 model 名见 [LLM provider 怎么配](/zh-cn/how-to/05-llm-provider/#国内模型怎么配)）、或者用任何说 OpenAI API 那套话的 provider，靠的都是它。配套字段是 `base_url`、`api_key_env` 和 `api_key_keychain`。
 
 <Aside type="caution" title="千万别把 key 写进文件">
 把 API key 存在环境变量（`api_key_env`）或 macOS Keychain（`api_key_keychain`）里——绝不要内联写进 `config.yaml`。两个都设时，keychain 这条胜出。两个 OAuth provider 则一个 key 都不需要。

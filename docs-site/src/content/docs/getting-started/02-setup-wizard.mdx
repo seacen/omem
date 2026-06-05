@@ -36,7 +36,7 @@ The flow is a short series of steps. Here's what each one decides — defaults i
 
 5. **Each kind of work** — files, mail, calendar, Loop notes. Every kind is **off by default**; you turn on the ones you want and OMem helps you configure each (which folders, which mail accounts, which calendars). This is also where macOS asks for permission — see [granting access](#granting-macos-access).
 
-6. **Browser session** (only if you enabled Loop) — a one-time sign-in so OMem can fetch your Teams Loop pages. Loop is the one source that drives a real browser, so it needs the `agent-browser` CLI installed first (`npm install -g agent-browser`); the wizard tells you if it's missing. See [ingest Loop notes](/how-to/04-ingest-loop/).
+6. **Browser session** (only if you enabled Loop) — a one-time sign-in so OMem can fetch your Teams Loop pages. Loop is the one source that drives a real browser, so it needs `agent-browser` installed first — **two steps**: `npm install -g agent-browser` (or `brew install agent-browser`) for the CLI, then `agent-browser install` to download its bundled Chrome for Testing. The wizard stops with a clear error if either is missing. See [ingest Loop notes](/how-to/04-ingest-loop/).
 
 </Steps>
 
@@ -74,7 +74,7 @@ OMem doesn't ship a model — you point it at one. The curator (text → wiki pa
   **`anthropic-api`** — the Anthropic API, billed per token. You provide an API key (stored in an env var or the macOS Keychain, never in the config file).
   </TabItem>
   <TabItem label="OpenAI-compatible">
-  **`openai-compat`** — any endpoint that speaks the OpenAI API: OpenAI itself, a hosted gateway, or **a local model on your own machine** (point `base_url` at your local server). The escape hatch for "I want to run my own model."
+  **`openai-compat`** — any endpoint that speaks the OpenAI API: OpenAI itself, **Chinese model platforms (Alibaba Bailian / ByteDance Volcengine Ark / Kimi / Zhipu GLM / MiniMax / DeepSeek all expose OpenAI-compatible endpoints)**, a hosted gateway, or **a local model on your own machine**. The escape hatch for "I want a different vendor or my own model." Concrete configs: [Configure the LLM provider](/how-to/05-llm-provider/#using-chinese-model-platforms).
   </TabItem>
   <TabItem label="ChatGPT subscription">
   **`openai-chatgpt-oauth`** — uses your ChatGPT Plus / Pro subscription. Like the Claude option, the wizard handles sign-in.
