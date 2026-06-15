@@ -10,7 +10,7 @@
       "name": "omem",
       "source": "./",
       "description": "Office Memory — local-first wiki built from your Microsoft 365 / Mail.app / Calendar / local folders. Claude Code can query it to answer questions about your work history.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "homepage": "https://github.com/seacen/omem",
       "keywords": [
         "memory",

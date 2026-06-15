@@ -1,7 +1,7 @@
 {
   "name": "omem",
-  "version": "1.0.0",
-  "description": "Office Memory — local-first work-context memory layer. Lets Codex CLI query a unified local wiki built from your Mail.app / Outlook / Calendar / Microsoft 365 / local folders. Bundles the MCP server entry; OMem CLI binary must be installed separately (brew install seacen/omem/omem).",
+  "version": "1.0.1",
+  "description": "Office Memory — local-first work-context memory layer. Lets Codex CLI query a unified local wiki built from your Mail.app / Outlook / Calendar / Microsoft 365 / local folders. Bundles the MCP server entry; OMem CLI binary must be installed separately (curl -fsSL https://github.com/seacen/omem/releases/latest/download/install.sh | sh).",
   "author": {
     "name": "Xichang (Seacen) Zhao",
     "email": "xichangzhao@gmail.com"

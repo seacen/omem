@@ -1,6 +1,6 @@
 {
   "name": "omem",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Office Memory (OMem) — local-first, agent-agnostic work-context memory layer. Lets Claude Code answer questions about your emails, calendar, documents, and team notes by querying a unified local wiki built from your Mail.app / Outlook / Calendar / Microsoft 365 / local folders.",
   "author": {
     "name": "Xichang (Seacen) Zhao",
