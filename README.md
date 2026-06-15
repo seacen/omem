@@ -39,6 +39,16 @@ connected.
 
 ---
 
+<div align="center">
+
+https://github.com/user-attachments/assets/ae51e3b1-b008-4c3b-b5c3-b3deba42315d
+
+<sub><i>OMem in 73 seconds — auto-ingest your real work, then ask any AI agent.</i></sub>
+
+</div>
+
+---
+
 ## Why OMem
 
 Your AI agent is clever, but every session starts blank — it can't see the work
