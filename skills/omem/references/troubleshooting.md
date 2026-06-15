@@ -5,6 +5,18 @@ something you don't recognise. The rule of thumb: **relay errors to
 the user; do NOT try to fix them yourself**. Modifying the user's OMem
 config / index / wiki is out of scope for this skill.
 
+## `command not found: omem` (or `omem: No such file or directory`)
+
+The `omem` CLI isn't installed — this skill is just a wrapper over it.
+Tell the user (don't install it yourself):
+
+> The OMem CLI isn't installed yet. Install it, then run `omem setup`:
+> `curl -fsSL https://github.com/seacen/omem/releases/latest/download/install.sh | sh`
+> Docs: https://seacen.github.io/omem/
+
+Until the CLI is installed, none of this skill's commands will work, so
+stop here after relaying — don't retry the query.
+
 ## `Error: no OMem config found. Run \`omem setup\` first.`
 
 User hasn't onboarded yet. Tell them:

@@ -41,6 +41,10 @@ allowed-tools:
 
 # OMem — your local work memory
 
+**Prerequisite**: this skill calls the local `omem` CLI. If `omem` isn't
+installed (you'll see `command not found: omem`), the user must install
+it first — see `references/troubleshooting.md`. Don't install it yourself.
+
 The user has an OMem index of their work artifacts — emails, calendar
 events, documents, and collaboration notes — abstracted into a unified
 local wiki. The specific sources depend on the user's setup (any mail
